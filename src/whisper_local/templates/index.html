@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="app-token" content="{{ token }}" />
+    <title>Whisper Local · Audio to text</title>
+    <link
+      rel="icon"
+      href="{{ url_for('static', filename='icon.svg') }}"
+      type="image/svg+xml"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='style.css') }}"
+    />
+    <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+  </head>
+  <body>
+    <main class="app">
+      <header class="masthead">
+        <a class="brand" href="/" aria-label="Whisper Local home"
+          ><img src="/static/icon.svg" alt="" width="36" height="36" /><span
+            >whisper<span class="brand-light"> / local</span></span
+          ></a
+        >
+        <span class="privacy">On your computer · No API fees</span>
+      </header>
+      <div class="intro">
+        <p class="eyebrow">AUDIO TO TEXT</p>
+        <h1>A little less listening.<br />A little more done.</h1>
+        <p>Turn your recordings into a transcript with OpenAI’s Whisper.</p>
+      </div>
+      <div class="workspace">
+        <section class="panel input-panel" aria-labelledby="audio-heading">
+          <div class="panel-heading">
+            <h2 id="audio-heading">Your audio</h2>
+            <span class="step">01</span>
+          </div>
+          <label
+            class="dropzone"
+            id="dropzone"
+            tabindex="0"
+            role="button"
+            aria-label="Choose an audio file"
+          >
+            <input
+              type="file"
+              id="file"
+              accept=".mp3,.wav,.m4a,.flac,.ogg,.opus,.webm,.aac,.mp4,.wma,.aiff,.aif"
+              hidden
+            />
+            <svg
+              width="32"
+              height="32"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              aria-hidden="true"
+            >
+              <path
+                d="M12 16V4m-4 4 4-4 4 4M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"
+              />
+            </svg>
+            <strong id="file-title">Drop a recording here</strong>
+            <span id="file-detail">or click to choose a file</span>
+            <small>MP3, WAV, M4A, FLAC and more · Up to 500 MB</small>
+          </label>
+          <audio
+            id="audio-player"
+            controls
+            hidden
+            aria-label="Preview selected audio"
+          ></audio>
+          <div class="settings">
+            <div class="field">
+              <label for="model">Whisper model</label
+              ><select id="model">
+                <option value="tiny">Tiny · fastest</option>
+                <option value="base" selected>Base · balanced</option>
+                <option value="small">Small · more accurate</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="language">Audio language</label
+              ><select id="language">
+                <option value="">Detect automatically</option>
+                <option value="en">English</option>
+                <option value="el">Greek</option>
+                <option value="es">Spanish</option>
+                <option value="fr">French</option>
+                <option value="de">German</option>
+                <option value="it">Italian</option>
+                <option value="pt">Portuguese</option>
+                <option value="nl">Dutch</option>
+                <option value="ru">Russian</option>
+                <option value="uk">Ukrainian</option>
+                <option value="tr">Turkish</option>
+                <option value="ar">Arabic</option>
+                <option value="he">Hebrew</option>
+                <option value="hi">Hindi</option>
+                <option value="zh">Chinese</option>
+                <option value="ja">Japanese</option>
+                <option value="ko">Korean</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="processing">Processing</label
+              ><select id="processing">
+                <option value="auto">Automatic · use GPU when available</option>
+                <option value="cpu">CPU only</option>
+              </select>
+              <p id="acceleration" class="speaker-note" role="status">
+                Checking acceleration…
+              </p>
+            </div>
+          </div>
+          <div class="fast-controls">
+            <button id="fast-mode" class="secondary" type="button">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.7"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="m13 2-9 12h7l-1 8 10-12h-7z" /></svg
+              >Fast mode</button
+            ><span>Tiny model · speaker detection off</span>
+          </div>
+          <div class="speaker-settings">
+            <label class="check-label"
+              ><input id="detect-speakers" type="checkbox" /><span
+                >Detect speakers</span
+              ></label
+            >
+            <p class="speaker-note">
+              Label different voices. Adds processing time.
+            </p>
+            <div id="speaker-options" hidden>
+              <div class="field speaker-count-field">
+                <label for="speaker-count"
+                  >Number of speakers
+                  <span class="optional">(optional)</span></label
+                ><input
+                  id="speaker-count"
+                  type="number"
+                  min="1"
+                  max="20"
+                  step="1"
+                  placeholder="Detect automatically"
+                />
+              </div>
+              <details id="speaker-setup" open>
+                <summary>One-time speaker setup</summary>
+                <p>
+                  Get the free model from
+                  <a
+                    href="https://huggingface.co/pyannote/speaker-diarization-community-1"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    >Hugging Face</a
+                  >
+                  and accept its terms, including sharing your contact details.
+                  Then create a
+                  <a
+                    href="https://huggingface.co/settings/tokens"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    >token with read access</a
+                  >.
+                </p>
+                <label for="hf-token">Hugging Face download token</label>
+                <input
+                  id="hf-token"
+                  type="password"
+                  autocomplete="off"
+                  spellcheck="false"
+                  placeholder="hf_…"
+                  maxlength="500"
+                />
+                <button id="setup-speakers" class="secondary" type="button">
+                  Download speaker model
+                </button>
+                <small
+                  >The token is used for this download only and is never
+                  saved.</small
+                >
+              </details>
+              <p
+                id="speaker-status"
+                class="speaker-note"
+                role="status"
+                aria-live="polite"
+              ></p>
+            </div>
+          </div>
+          <button id="transcribe" class="primary" disabled>
+            Transcribe audio
+          </button>
+          <p class="download-note">
+            First use downloads the selected model. After that, it works
+            offline.
+          </p>
+          <div id="status" class="status" role="status" aria-live="polite">
+            Choose a recording to begin.
+          </div>
+        </section>
+        <section
+          class="panel result-panel"
+          aria-labelledby="transcript-heading"
+        >
+          <div class="panel-heading">
+            <h2 id="transcript-heading">Transcript</h2>
+            <span class="step">02</span>
+          </div>
+          <div id="empty" class="empty">
+            <svg
+              class="text-icon"
+              width="40"
+              height="40"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.3"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path
+                d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h8M8 17h6"
+              />
+            </svg>
+            <h3>Your words, written down.</h3>
+            <p>
+              Your transcript will appear here.<br />Copy it or save it when
+              you’re ready.
+            </p>
+          </div>
+          <div id="results" hidden>
+            <div class="result-meta">
+              <span id="result-meta"></span>
+              <div
+                class="view-toggle"
+                role="group"
+                aria-label="Transcript view"
+              >
+                <button id="plain-view" class="selected" aria-pressed="true">
+                  Text</button
+                ><button id="timed-view" aria-pressed="false">
+                  Timestamps
+                </button>
+              </div>
+            </div>
+            <div id="speaker-names" hidden>
+              <p>
+                Rename speakers
+                <span class="optional">· Included in copies and downloads</span>
+              </p>
+              <div id="speaker-name-fields"></div>
+            </div>
+            <textarea
+              id="transcript"
+              readonly
+              aria-label="Transcript text"
+              spellcheck="false"
+            ></textarea>
+            <div id="segments" hidden></div>
+            <div class="result-actions">
+              <button id="copy" class="secondary">Copy text</button>
+              <div class="downloads">
+                <button id="save-txt" class="quiet">Save .txt</button
+                ><button id="save-srt" class="quiet">Save .srt</button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+      <footer>
+        <span
+          >Audio stays local. Temporary audio is deleted after
+          transcription.</span
+        ><span>Powered by open-source Whisper</span>
+      </footer>
+    </main>
+  </body>
+</html>

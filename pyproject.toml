@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "whisper-local"
+version = "0.1.0"
+description = "Private audio transcription with local Whisper inference and optional speaker labels."
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+license = "MIT"
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
+authors = [{name = "Whisper Local contributors"}]
+keywords = ["whisper", "transcription", "diarization", "audio", "local"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+]
+dependencies = [
+    "Flask>=3.1,<4",
+    "waitress>=3.0,<4",
+    "platformdirs>=4,<5",
+    "faster-whisper==1.2.1",
+    "ctranslate2==4.8.2",
+    "pyannote.audio==4.0.7",
+    "torchcodec==0.7.0",
+    "torch==2.8.0",
+    "torchaudio==2.8.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<9", "ruff>=0.11,<1", "build>=1.2,<2"]
+
+[project.scripts]
+whisper-local = "whisper_local.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+whisper_local = ["templates/*.html", "static/*.js", "static/*.css", "static/*.svg"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -m 'not integration'"
+markers = ["integration: opt-in real inference with locally cached models and WHISPER_TEST_AUDIO"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+extend-exclude = [".runtime", ".models", "node_modules", "build", "dist"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]

@@ -1,0 +1,17 @@
+{
+  "name": "whisper-local-ui-checks",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "test": "node tests/browser/check.cjs",
+    "format": "prettier --write src/whisper_local/static src/whisper_local/templates tests/browser package.json .github",
+    "format:check": "prettier --check src/whisper_local/static src/whisper_local/templates tests/browser package.json .github"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0",
+    "prettier": "3.8.1"
+  }
+}

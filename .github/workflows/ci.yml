@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python: "3.11"
+          - os: windows-latest
+            python: "3.11"
+          - os: ubuntu-latest
+            python: "3.12"
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install app and lightweight test tools
+        run: |
+          python -m pip install -e . --no-deps
+          python -m pip install "Flask>=3.1,<4" "waitress>=3,<4" "platformdirs>=4,<5" "pytest>=8,<9" "ruff>=0.11,<1" "build>=1.2,<2"
+      - run: python -m ruff check .
+      - run: python -m ruff format --check .
+      - run: python -m pytest
+      - run: python -m build
+      - run: python scripts/check_distribution.py
+
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: python -m pip install -e . --no-deps
+      - run: python -m pip install "Flask>=3.1,<4" "platformdirs>=4,<5"
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run format:check
+      - run: npm test

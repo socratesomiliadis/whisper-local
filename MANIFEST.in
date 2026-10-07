@@ -1,0 +1,13 @@
+include app.py Start.cmd Setup.ps1 requirements*.txt package*.json
+include CONTRIBUTING.md SECURITY.md CHANGELOG.md .editorconfig .gitattributes .gitignore .prettierignore
+recursive-include docs *.json *.png
+recursive-include tests *.py *.cjs
+recursive-include scripts *.py
+recursive-include .github *.yml *.md
+recursive-include src/whisper_local/static *.js *.css *.svg
+recursive-include src/whisper_local/templates *.html
+prune .runtime
+prune .models
+prune node_modules
+prune test-results
+global-exclude __pycache__ *.py[cod]

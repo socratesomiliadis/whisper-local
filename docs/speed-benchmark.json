@@ -1,0 +1,49 @@
+{
+  "audio_seconds": 80.47,
+  "hardware": {
+    "gpu_available": true,
+    "gpu_name": "NVIDIA GeForce RTX 3060",
+    "device": "cuda"
+  },
+  "cpu_threads": 8,
+  "runs": [
+    {
+      "engine": "Original Whisper Base \u00b7 CPU",
+      "seconds": 4.134
+    },
+    {
+      "engine": "Original Whisper Base \u00b7 CPU",
+      "seconds": 3.666
+    },
+    {
+      "engine": "faster-whisper Base \u00b7 CPU INT8",
+      "seconds": 3.423
+    },
+    {
+      "engine": "faster-whisper Base \u00b7 CPU INT8",
+      "seconds": 3.151
+    },
+    {
+      "engine": "faster-whisper Base \u00b7 GPU FP16",
+      "seconds": 0.869
+    },
+    {
+      "engine": "faster-whisper Base \u00b7 GPU FP16",
+      "seconds": 0.922
+    },
+    {
+      "engine": "faster-whisper Tiny \u00b7 GPU FP16",
+      "seconds": 0.606
+    },
+    {
+      "engine": "faster-whisper Tiny \u00b7 GPU FP16",
+      "seconds": 0.529
+    }
+  ],
+  "median_seconds": {
+    "Original Whisper Base \u00b7 CPU": 3.9,
+    "faster-whisper Base \u00b7 CPU INT8": 3.287,
+    "faster-whisper Base \u00b7 GPU FP16": 0.895,
+    "faster-whisper Tiny \u00b7 GPU FP16": 0.568
+  }
+}
