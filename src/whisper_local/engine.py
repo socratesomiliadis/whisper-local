@@ -12,6 +12,7 @@ from .settings import MODELS_DIR
 os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
 os.environ["HF_HUB_DISABLE_IMPLICIT_TOKEN"] = "1"
 THREADS = min(8, max(1, (os.cpu_count() or 2) // 2))
+QUALITY_BEAMS = {"fast": 1, "balanced": 3, "accurate": 5}
 model = None
 model_key = None
 gpu_disabled_reason = None
@@ -85,6 +86,13 @@ def load(name: str, device: str, progress=None):
         # requests on subsequent launches; model construction uses a local path.
         marker = directory / ".ready"
         if not marker.exists() or not (directory / "model.bin").is_file():
+            if progress:
+                progress(
+                    "loading",
+                    "Downloading Whisper model. This only happens once…",
+                    stage="downloading",
+                    progress=None,
+                )
             snapshot_download(
                 f"Systran/faster-whisper-{name}",
                 local_dir=str(directory),
@@ -98,6 +106,8 @@ def load(name: str, device: str, progress=None):
                 ],
             )
             marker.write_text(name + "\n", encoding="utf-8")
+        if progress:
+            progress("loading", "Loading Whisper into memory…", stage="loading", progress=None)
         worker = WhisperModel(
             str(directory),
             device=device,
@@ -127,7 +137,7 @@ def valid_language(language: str) -> bool:
     return language in _LANGUAGE_CODES
 
 
-def _run(audio, name, language, word_timestamps, device, progress):
+def _run(audio, name, language, word_timestamps, device, progress, quality="balanced"):
     worker = load(name, device, progress)
     if progress:
         progress("transcribing", f"Transcribing on your {'GPU' if device == 'cuda' else 'CPU'}…")
@@ -135,11 +145,12 @@ def _run(audio, name, language, word_timestamps, device, progress):
         audio,
         language=language or None,
         task="transcribe",
-        beam_size=1,
+        beam_size=QUALITY_BEAMS[quality],
         word_timestamps=word_timestamps,
         vad_filter=True,
     )
     segments = []
+    duration = len(audio) / 16000 if hasattr(audio, "__len__") else None
     for segment in predicted:
         if not segment.text.strip():
             continue
@@ -154,6 +165,11 @@ def _run(audio, name, language, word_timestamps, device, progress):
             progress(
                 "transcribing",
                 f"Transcribing on your {'GPU' if device == 'cuda' else 'CPU'}… {int(segment.end)} seconds processed.",
+                stage="transcribing",
+                progress=min(1.0, float(segment.end) / duration) if duration else None,
+                processed_seconds=min(float(segment.end), duration)
+                if duration
+                else float(segment.end),
             )
     return {
         "text": "".join(s["text"] for s in segments).strip(),
@@ -165,12 +181,20 @@ def _run(audio, name, language, word_timestamps, device, progress):
 
 
 def transcribe(
-    audio, name="base", language="", word_timestamps=False, processing="auto", progress=None
+    audio,
+    name="base",
+    language="",
+    word_timestamps=False,
+    processing="auto",
+    progress=None,
+    quality="balanced",
 ):
     global gpu_disabled_reason
+    if quality not in QUALITY_BEAMS:
+        raise ValueError("Choose fast, balanced, or accurate quality.")
     device = "cuda" if processing == "auto" and capabilities()["gpu_available"] else "cpu"
     try:
-        return _run(audio, name, language, word_timestamps, device, progress)
+        return _run(audio, name, language, word_timestamps, device, progress, quality)
     except Exception as exc:
         if device != "cuda" or not is_gpu_error(exc):
             raise
@@ -178,6 +202,6 @@ def transcribe(
         unload()
         if progress:
             progress("loading", "GPU acceleration could not finish. Continuing on your CPU…")
-    result = _run(audio, name, language, word_timestamps, "cpu", progress)
+    result = _run(audio, name, language, word_timestamps, "cpu", progress, quality)
     result["gpu_fallback"] = True
     return result

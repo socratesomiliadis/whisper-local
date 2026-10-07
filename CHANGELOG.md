@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+- Editable transcript segments, timing corrections, manual speaker assignment,
+  search/replace, and undo/redo, shared across copying, saving, and exports.
+- Browser-local IndexedDB transcript autosave, individual/all-record deletion,
+  optional retained audio, and remembered review/transcription preferences.
+- Synchronized playback highlighting, follow scrolling, playback speeds, skip
+  controls, waveform previews, and selected-range transcription with original timestamps.
+- Microphone capture with pause, resume, preview, discard, and permission handling.
+- Sequential browser batch queues and ZIP downloads containing TXT/SRT/VTT/JSON results.
+- VTT and JSON exports, subtitle line length/cue duration controls, and optional speaker labels.
+- Fast/Tiny, Balanced/Base, and Accurate/Small presets with decoding beams 1/3/5.
+- Structured stage progress, isolated inference processes, actual cancellation,
+  private-upload cleanup on cancellation/shutdown, and session CPU fallback after GPU failure.
+- More transcript space after file selection, collapsible advanced settings,
+  accessible controls, and responsive editing layouts.
+- Regression coverage for editing/export consistency, local history, queues,
+  media controls, range offsets, worker completion, cancellation, and shutdown.
+
 ## 0.1.0
 
 - Local uploads, audio preview, timestamps, and TXT/SRT export.

@@ -62,3 +62,33 @@ def test_download_errors_do_not_retry(monkeypatch):
 def test_unavailable_libraries_report_cpu(monkeypatch):
     monkeypatch.setattr(engine, "configure_libraries", Mock(side_effect=ImportError("missing")))
     assert engine.capabilities() == {"gpu_available": False, "gpu_name": None, "device": "cpu"}
+
+
+@pytest.mark.parametrize("quality,beam", [("fast", 1), ("balanced", 3), ("accurate", 5)])
+def test_quality_beams_and_structured_progress(monkeypatch, quality, beam):
+    worker = Mock()
+    worker.transcribe.return_value = (
+        iter(
+            [
+                SimpleNamespace(start=0, end=1, text=" Hello.", words=[]),
+                SimpleNamespace(start=1, end=4, text=" Done.", words=[]),
+            ]
+        ),
+        SimpleNamespace(language="en"),
+    )
+    monkeypatch.setattr(engine, "load", lambda *args: worker)
+    progress = Mock()
+    result = engine.transcribe([0] * 64000, processing="cpu", quality=quality, progress=progress)
+    assert worker.transcribe.call_args.kwargs["beam_size"] == beam
+    assert result["text"] == "Hello. Done."
+    updates = [call.kwargs for call in progress.call_args_list if "progress" in call.kwargs]
+    assert [update["progress"] for update in updates] == [0.25, 1.0]
+    assert updates[-1]["processed_seconds"] == 4
+
+
+def test_invalid_quality_does_not_load_model(monkeypatch):
+    load = Mock()
+    monkeypatch.setattr(engine, "load", load)
+    with pytest.raises(ValueError, match="quality"):
+        engine.transcribe(object(), quality="bogus")
+    load.assert_not_called()

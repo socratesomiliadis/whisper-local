@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import atexit
 import logging
+import math
+import multiprocessing
 import secrets
 import shutil
 import tempfile
@@ -39,6 +42,39 @@ app.config["MAX_CONTENT_LENGTH"] = MAX_BYTES + 1024 * 1024
 jobs: dict[str, dict] = {}
 state_lock = threading.Lock()
 engine_lock = threading.Lock()
+ACTIVE_STATES = {"uploading", "loading", "transcribing", "diarizing"}
+workers: dict[str, dict] = {}
+upload_folders: dict[str, str] = {}
+
+
+def stop_process(process):
+    if process.pid is not None and process.is_alive():
+        process.terminate()
+        process.join(timeout=5)
+        if process.is_alive():
+            process.kill()
+            process.join(timeout=5)
+
+
+def stop_workers():
+    """Release native workers and private uploads when the launch window closes."""
+    with state_lock:
+        for job in jobs.values():
+            if job["state"] in ACTIVE_STATES:
+                job.update(
+                    state="cancelled",
+                    stage="cancelled",
+                    progress=None,
+                    message="Transcription cancelled because the app closed.",
+                )
+        for control in workers.values():
+            stop_process(control["process"])
+        folders = set(upload_folders.values()) | {control["folder"] for control in workers.values()}
+        for folder in folders:
+            shutil.rmtree(folder, ignore_errors=True)
+
+
+atexit.register(stop_workers)
 
 
 @app.before_request
@@ -126,7 +162,17 @@ def too_large(_error):
 
 def update_job(job_id, **values):
     with state_lock:
-        jobs[job_id].update(values)
+        _update_job_locked(job_id, values)
+
+
+def _update_job_locked(job_id, values):
+    job = jobs.get(job_id)
+    if job is None or job.get("state") == "cancelled":
+        return
+    if "state" in values:
+        values.setdefault("stage", values["state"])
+        values.setdefault("progress", 1.0 if values["state"] == "complete" else None)
+    job.update(values)
 
 
 def timestamp(seconds: float) -> str:
@@ -160,18 +206,44 @@ def transcribe(
     detect_speakers=False,
     num_speakers=None,
     processing="auto",
+    quality="balanced",
+    start_time=0.0,
+    end_time=None,
+    emit=None,
+    cleanup=True,
 ):
+    publish = emit or (lambda **values: update_job(job_id, **values))
     try:
         with engine_lock:
             started = time.perf_counter()
+            publish(state="loading", stage="decoding", message="Decoding your recording…")
             audio = engine.decode(path)
+            original_duration = len(audio) / 16000
+            if start_time >= original_duration:
+                raise ValueError("The selected range starts after the end of the recording.")
+            range_end = (
+                min(end_time, original_duration) if end_time is not None else original_duration
+            )
+            audio = audio[round(start_time * 16000) : round(range_end * 16000)]
+            duration = len(audio) / 16000
+            if not duration:
+                raise ValueError("Choose a nonempty audio range.")
+            publish(
+                duration=duration,
+                original_duration=original_duration,
+                range={"start": start_time, "end": range_end},
+                processed_seconds=0.0,
+            )
             result = engine.transcribe(
                 audio,
                 name=model_name,
                 language=language,
                 word_timestamps=detect_speakers,
                 processing=processing,
-                progress=lambda state, message: update_job(job_id, state=state, message=message),
+                quality=quality,
+                progress=lambda state, message, **values: publish(
+                    state=state, message=message, **values
+                ),
             )
             segments = [
                 {"start": float(s["start"]), "end": float(s["end"]), "text": s["text"].strip()}
@@ -180,14 +252,12 @@ def transcribe(
             ]
             speakers, warning = {}, None
             if detect_speakers and segments:
-                update_job(
-                    job_id, state="diarizing", message="Detecting speakers on your computer…"
-                )
+                publish(state="diarizing", message="Detecting speakers on your computer…")
                 try:
                     turns = diarization.detect(
                         audio,
                         num_speakers,
-                        progress=lambda message: update_job(job_id, message=message),
+                        progress=lambda message, **values: publish(message=message, **values),
                         device=result["device"],
                     )
                     segments, speakers = diarization.assign_speakers(result["segments"], turns)
@@ -197,8 +267,10 @@ def transcribe(
                         "The transcript is ready, but speaker detection failed. "
                         + diarization.safe_error(exc)
                     )
-            update_job(
-                job_id,
+            for segment in segments:
+                segment["start"] = max(start_time, min(range_end, segment["start"] + start_time))
+                segment["end"] = max(segment["start"], min(range_end, segment["end"] + start_time))
+            publish(
                 state="complete",
                 message="Transcript ready.",
                 text=result["text"].strip(),
@@ -210,10 +282,15 @@ def transcribe(
                 device=result["device"],
                 gpu_fallback=result["gpu_fallback"],
                 elapsed=round(time.perf_counter() - started, 2),
+                quality=quality,
+                duration=duration,
+                original_duration=original_duration,
+                range={"start": start_time, "end": range_end},
+                processed_seconds=duration,
             )
     except Exception as exc:
         logging.exception("Transcription failed")
-        if isinstance(exc, ValueError) and "could not be decoded" in str(exc):
+        if isinstance(exc, ValueError):
             message = str(exc)
         elif isinstance(exc, RuntimeError) and "Failed to load audio" in str(exc):
             message = "This file could not be decoded. Try a valid MP3, WAV, or M4A recording."
@@ -222,9 +299,142 @@ def transcribe(
                 "Whisper could not finish. Check your connection if the model is downloading, then try again. Details: "
                 + str(exc)[:250]
             )
-        update_job(job_id, state="error", message=message)
+        publish(state="error", message=message)
     finally:
-        shutil.rmtree(folder, ignore_errors=True)
+        if cleanup:
+            shutil.rmtree(folder, ignore_errors=True)
+
+
+def _inference_worker(events, arguments, gpu_disabled_reason=None):
+    """Spawned process: even a blocking native inference call can be cancelled."""
+    engine.gpu_disabled_reason = gpu_disabled_reason
+    try:
+        transcribe(*arguments, emit=lambda **values: events.send(values), cleanup=False)
+    finally:
+        events.close()
+
+
+def run_job(
+    job_id,
+    folder,
+    path,
+    model_name,
+    language,
+    detect_speakers=False,
+    num_speakers=None,
+    processing="auto",
+    quality="balanced",
+    start_time=0.0,
+    end_time=None,
+):
+    events = sender = process = None
+    final_values = None
+    try:
+        context = multiprocessing.get_context("spawn")
+        events, sender = context.Pipe(duplex=False)
+        process = context.Process(
+            target=_inference_worker,
+            args=(
+                sender,
+                (
+                    job_id,
+                    folder,
+                    path,
+                    model_name,
+                    language,
+                    detect_speakers,
+                    num_speakers,
+                    processing,
+                    quality,
+                    start_time,
+                    end_time,
+                ),
+                engine.gpu_disabled_reason,
+            ),
+            daemon=True,
+        )
+        # Publish and start atomically: cancellation cannot miss a starting process.
+        with state_lock:
+            if jobs[job_id]["state"] == "cancelled":
+                return
+            workers[job_id] = {"process": process, "folder": folder}
+            process.start()
+            # Only the child holds the write end. Killing it during a large
+            # result send produces EOF instead of leaving the monitor blocked.
+            sender.close()
+        terminal = False
+        while not terminal:
+            if events.poll(0.1):
+                try:
+                    values = events.recv()
+                except EOFError:
+                    final_values = {
+                        "state": "error",
+                        "message": "The transcription worker stopped unexpectedly. Try again.",
+                    }
+                    break
+                if values.get("gpu_fallback"):
+                    engine.gpu_disabled_reason = (
+                        "GPU acceleration failed; using CPU for this session."
+                    )
+                terminal = values.get("state") in {"complete", "error"}
+                if terminal:
+                    final_values = values
+                else:
+                    update_job(job_id, **values)
+            else:
+                with state_lock:
+                    cancelled = jobs.get(job_id, {}).get("state") == "cancelled"
+                if cancelled:
+                    break
+                if not process.is_alive():
+                    final_values = {
+                        "state": "error",
+                        "message": "The transcription worker stopped unexpectedly. Try again.",
+                    }
+                    break
+        process.join(timeout=1)
+    except Exception:
+        logging.exception("Could not run transcription worker")
+        final_values = {
+            "state": "error",
+            "message": "Could not start the transcription worker. Try again.",
+        }
+    finally:
+        with state_lock:
+            if process is not None:
+                stop_process(process)
+            if events is not None:
+                events.close()
+            if sender is not None:
+                sender.close()
+            shutil.rmtree(folder, ignore_errors=True)
+            workers.pop(job_id, None)
+            upload_folders.pop(job_id, None)
+            # A terminal state releases the single-worker reservation only
+            # after native work and private-upload cleanup have finished.
+            if final_values is not None:
+                _update_job_locked(job_id, final_values)
+
+
+@app.post("/api/jobs/<job_id>/cancel")
+def cancel_job(job_id):
+    with state_lock:
+        job = jobs.get(job_id)
+        if job is None:
+            return jsonify(error="This transcript expired. Transcribe the file again."), 404
+        if job["state"] not in ACTIVE_STATES:
+            return jsonify(dict(job)), 200
+        control = workers.get(job_id)
+        # Stop native CPU/GPU work before exposing a terminal job to the queue.
+        if control:
+            process = control["process"]
+            stop_process(process)
+            shutil.rmtree(control["folder"], ignore_errors=True)
+        job.update(
+            state="cancelled", stage="cancelled", progress=None, message="Transcription cancelled."
+        )
+        return jsonify(dict(job)), 200
 
 
 @app.post("/api/transcribe")
@@ -238,6 +448,23 @@ def start_transcription():
     model_name = request.form.get("model", "base")
     language = request.form.get("language", "")
     processing = request.form.get("processing", "auto")
+    quality = request.form.get("quality", "balanced")
+    if quality not in engine.QUALITY_BEAMS:
+        return jsonify(error="Choose fast, balanced, or accurate quality."), 400
+    try:
+        start_time = float(request.form.get("start_time", "") or 0)
+        end_value = request.form.get("end_time", "")
+        end_time = float(end_value) if end_value else None
+        if (
+            not math.isfinite(start_time)
+            or start_time < 0
+            or (end_time is not None and (not math.isfinite(end_time) or end_time <= start_time))
+        ):
+            raise ValueError
+    except (ValueError, OverflowError):
+        return jsonify(
+            error="Use a valid audio range in seconds: start at zero or later, with end after start."
+        ), 400
     if processing not in {"auto", "cpu"}:
         return jsonify(error="Choose automatic processing or CPU only."), 400
     detect_speakers = request.form.get("detect_speakers", "false") == "true"
@@ -272,18 +499,32 @@ def start_transcription():
             "state": "uploading",
             "message": "Reading your file.",
             "created": time.time(),
+            "stage": "uploading",
+            "progress": None,
+            "duration": None,
+            "processed_seconds": 0,
+            "quality": quality,
         }
     folder = None
     try:
         folder = tempfile.mkdtemp(prefix="whisper-local-")
+        with state_lock:
+            upload_folders[job_id] = folder
         path = str(Path(folder) / ("audio" + extension))
         audio.save(path)
         size = Path(path).stat().st_size
         if size == 0 or size > MAX_BYTES:
             raise ValueError("Choose a nonempty audio file smaller than 500 MB.")
+        with state_lock:
+            cancelled = jobs[job_id]["state"] == "cancelled"
+        if cancelled:
+            shutil.rmtree(folder, ignore_errors=True)
+            with state_lock:
+                upload_folders.pop(job_id, None)
+            return jsonify(error="Transcription cancelled."), 409
         update_job(job_id, state="loading", message="Preparing Whisper.")
         threading.Thread(
-            target=transcribe,
+            target=run_job,
             args=(
                 job_id,
                 folder,
@@ -293,12 +534,17 @@ def start_transcription():
                 detect_speakers,
                 num_speakers,
                 processing,
+                quality,
+                start_time,
+                end_time,
             ),
             daemon=True,
         ).start()
     except Exception as exc:
         if folder is not None:
             shutil.rmtree(folder, ignore_errors=True)
+        with state_lock:
+            upload_folders.pop(job_id, None)
         update_job(job_id, state="error", message=str(exc))
         return jsonify(error=str(exc)), 400
     return jsonify(job_id=job_id), 202
@@ -348,6 +594,7 @@ def main(argv=None):
         pass
     finally:
         server.close()
+        stop_workers()
 
 
 if __name__ == "__main__":

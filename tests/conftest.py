@@ -11,6 +11,8 @@ api = importlib.import_module("whisper_local.app")
 @pytest.fixture(autouse=True)
 def isolate_state(monkeypatch):
     monkeypatch.setattr(api, "jobs", {})
+    monkeypatch.setattr(api, "workers", {})
+    monkeypatch.setattr(api, "upload_folders", {})
     monkeypatch.setattr(diarization, "setup_state", {"state": "idle", "message": "Setup required."})
     monkeypatch.setattr(diarization, "ready", lambda: False)
     monkeypatch.setattr(diarization, "installed", lambda: True)

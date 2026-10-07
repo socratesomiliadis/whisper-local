@@ -9,6 +9,9 @@ with ZipFile(wheel) as archive:
     for asset in (
         "templates/index.html",
         "static/app.js",
+        "static/editor.js",
+        "static/media.js",
+        "static/library.js",
         "static/style.css",
         "static/icon.svg",
     ):

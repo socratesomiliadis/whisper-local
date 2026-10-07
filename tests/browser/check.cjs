@@ -139,6 +139,9 @@ async function run() {
     const page = await context.newPage();
     page.on("pageerror", (error) => errors.push(error.message));
     await page.goto(origin);
+    await page.locator("#advanced-settings").evaluate((element) => {
+      element.open = true;
+    });
     assert(!(await page.locator("body").textContent()).includes("\uFFFD"));
     assert(await page.locator("#transcribe").isDisabled());
     await page.locator("#fast-mode").click();
@@ -214,6 +217,7 @@ async function run() {
         () => document.documentElement.scrollWidth <= innerWidth,
       ),
     );
+    await page.evaluate(() => scrollTo(0, 0));
     await page.screenshot({
       path: path.join(artifacts, "desktop.png"),
       fullPage: true,

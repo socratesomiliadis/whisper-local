@@ -130,7 +130,12 @@ def detect(audio, num_speakers: int | None = None, progress=None, device="auto")
         if progress:
             label = step_name.replace("_", " ")
             fraction = f" ({completed}/{total})" if total and completed is not None else ""
-            progress("Detecting speakers: " + label + fraction + ".")
+            progress(
+                "Detecting speakers: " + label + fraction + ".",
+                stage="diarizing",
+                progress=min(1.0, completed / total) if total and completed is not None else None,
+                step=label,
+            )
 
     try:
         output = worker({"waveform": waveform, "sample_rate": 16000}, hook=hook, **options)

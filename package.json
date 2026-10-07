@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "test": "node tests/browser/check.cjs",
+    "test": "node tests/browser/editor-exports.cjs && node tests/browser/media.cjs && node tests/browser/check.cjs && node tests/browser/workspace.cjs",
     "format": "prettier --write src/whisper_local/static src/whisper_local/templates tests/browser package.json .github",
     "format:check": "prettier --check src/whisper_local/static src/whisper_local/templates tests/browser package.json .github"
   },
