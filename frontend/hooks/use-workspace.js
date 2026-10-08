@@ -98,6 +98,7 @@ const initial = () => ({
   messageType: "",
   historyMessage: "",
   copied: false,
+  exportingPdf: false,
   speakerSelects: [],
 });
 const el = (id) => document.getElementById(id);
@@ -660,11 +661,30 @@ function createWorkspace(start, update) {
       status("Press Ctrl+C (or Command+C) to copy the selected transcript.");
     }
   }
-  function exportFile(format) {
+  async function exportFile(format) {
     if (!state.result) return;
     editor.flushEdit();
+    const name =
+      record?.name ||
+      selected?.name ||
+      baseName(state.file?.name || "transcript");
+    if (format === "pdf") {
+      if (state.exportingPdf) return;
+      const snapshot = editor.snapshot();
+      patch({ exportingPdf: true });
+      try {
+        const { createTranscriptPdf } =
+          await import("../lib/transcript-pdf.js");
+        download(`${name}.pdf`, await createTranscriptPdf(snapshot, name));
+      } catch {
+        status("Could not save PDF. Try again.", "error");
+      } finally {
+        patch({ exportingPdf: false });
+      }
+      return;
+    }
     download(
-      `${record?.name || selected?.name || baseName(state.file?.name || "transcript")}.${format}`,
+      `${name}.${format}`,
       editor.export(format),
       format === "json"
         ? "application/json;charset=utf-8"

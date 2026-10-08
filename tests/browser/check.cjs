@@ -587,10 +587,17 @@ async function run() {
         () => document.documentElement.scrollWidth <= innerWidth,
       ),
     );
-    await page.evaluate(() => scrollTo(0, 0));
+    await chooseTheme(page, "Dark");
+    await assertTheme(page, "dark");
+    await page.evaluate(async () => {
+      await document.fonts.ready;
+      document.activeElement?.blur();
+      scrollTo(0, 0);
+    });
     await page.screenshot({
       path: path.join(artifacts, "desktop.png"),
       fullPage: true,
+      animations: "disabled",
     });
     if (process.env.UPDATE_SCREENSHOT === "1")
       fs.copyFileSync(

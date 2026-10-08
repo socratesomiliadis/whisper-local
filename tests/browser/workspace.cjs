@@ -361,6 +361,14 @@ async function run() {
       }
       if (format === "vtt") assert(downloaded.text.startsWith("WEBVTT\n"));
     }
+    const pdfReady = page.waitForEvent("download");
+    await page.locator("#save-pdf").click();
+    const pdf = await pdfReady;
+    assert.equal(pdf.suggestedFilename(), "first.pdf");
+    const pdfBytes = fs.readFileSync(await pdf.path());
+    assert.equal(pdfBytes.subarray(0, 5).toString(), "%PDF-");
+    assert.match(pdfBytes.subarray(-32).toString(), /%%EOF/);
+    fs.writeFileSync(path.join(artifacts, "transcript-export.pdf"), pdfBytes);
     const zipReady = page.waitForEvent("download");
     await page.locator("#download-batch").click();
     const zip = await zipReady;
@@ -535,7 +543,7 @@ async function run() {
     }
     assert.deepEqual(errors, []);
     console.log(
-      "Workspace browser checks passed: sequential queue, quality/range, progress/cancel, editing/undo/search, playback, copy and four exports, ZIP checksums/Unicode, library reload/audio/delete/autosave, responsive layout.",
+      "Workspace browser checks passed: sequential queue, quality/range, progress/cancel, editing/undo/search, playback, copy and five exports, ZIP checksums/Unicode, library reload/audio/delete/autosave, responsive layout.",
     );
   } finally {
     await browser.close();

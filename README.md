@@ -4,7 +4,7 @@ A small browser app for private audio transcription using OpenAI's open-source
 Whisper models through WhisperX, with word alignment. Upload or record audio, transcribe on your computer, and export text
 or subtitles. No OpenAI account, API key, or transcription fees.
 
-![Whisper Local with an example speaker-labeled transcript](docs/screenshot.png)
+![Whisper Local in dark mode with an example speaker-labeled transcript](docs/screenshot.png)
 
 _The screenshot uses a deterministic two-speaker fixture to demonstrate the UI._
 
@@ -191,6 +191,12 @@ relative to the original recording.
 Subtitle settings control characters per line, maximum cue duration, and speaker
 labels in SRT/VTT exports. Cue splitting estimates timing within each edited
 segment; review subtitles against the recording when precise timing matters.
+
+**Save PDF** downloads a formatted transcript with start/end
+timestamps (HH:MM:SS.mmm), speaker names when available, and page numbers.
+It includes your latest edits and keeps timestamps relative to the original
+recording, including when you transcribe a selected range. PDF generation runs
+locally in your browser and works offline.
 
 ## Formats and storage
 

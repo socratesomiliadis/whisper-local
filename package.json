@@ -31,6 +31,7 @@
     "clsx": "^2.1.1",
     "cn": "^0.4.0",
     "lucide-react": "^1.52.0",
+    "pdfmake": "^0.3.11",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "tailwind-merge": "^3.7.0",

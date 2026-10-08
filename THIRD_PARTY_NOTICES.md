@@ -25,6 +25,8 @@ Base UI, shadcn/ui components, and their supporting libraries.
 | [Tailwind CSS](https://github.com/tailwindlabs/tailwindcss) | MIT; interface styles |
 | [Lucide](https://github.com/lucide-icons/lucide) | ISC; SVG interface icons |
 | [Geist](https://github.com/vercel/geist-font) | SIL Open Font License 1.1; locally bundled through Fontsource. See `static/geist-OFL.txt` in the application package. |
+| [pdfmake](https://github.com/bpampuch/pdfmake) | MIT; local PDF transcript generation |
+| [Roboto](https://github.com/googlefonts/roboto) | Apache-2.0; embedded PDF fonts bundled with pdfmake |
 | [class-variance-authority](https://github.com/joe-bell/cva), [cn](https://github.com/shadcn-ui/cn), [clsx](https://github.com/lukeed/clsx), [tailwind-merge](https://github.com/dcastil/tailwind-merge), [tw-animate-css](https://github.com/Wombosvideo/tw-animate-css) | MIT; frontend component utilities |
 
 Consult each project's notices for transitive dependencies and CUDA components.

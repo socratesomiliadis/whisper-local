@@ -9,6 +9,7 @@ import {
     Check,
     Copy,
     Download,
+    FileText,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { BotAvatar } from "bot-avatars";
@@ -238,6 +239,15 @@ export function TranscriptPanel({ workspace: w }) {
                     >
                         <Download />
                         Save text
+                    </Action>
+                    <Action
+                        id="save-pdf"
+                        variant="ghost"
+                        disabled={w.exportingPdf}
+                        onClick={() => w.run("exportFile", "pdf")}
+                    >
+                        <FileText />
+                        {w.exportingPdf ? "Saving PDF…" : "Save PDF"}
                     </Action>
                     <Action
                         id="save-srt"

@@ -15,7 +15,11 @@ export default defineConfig({
     cssCodeSplit: false,
     rollupOptions: {
       input: "frontend/main.jsx",
-      output: { entryFileNames: "app.js", assetFileNames: "[name].[ext]" },
+      output: {
+        entryFileNames: "app.js",
+        chunkFileNames: "[name].js",
+        assetFileNames: "[name].[ext]",
+      },
     },
   },
   server: {
