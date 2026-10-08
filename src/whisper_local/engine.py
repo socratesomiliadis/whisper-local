@@ -17,6 +17,9 @@ THREADS = min(8, max(1, (os.cpu_count() or 2) // 2))
 QUALITY_BEAMS = {"fast": 1, "balanced": 3, "accurate": 5}
 model = None
 model_key = None
+model_parked = False
+alignment = None
+alignment_language = None
 gpu_disabled_reason = None
 _dll_handles = []
 
@@ -57,7 +60,7 @@ def is_gpu_error(exc: Exception) -> bool:
 
 
 def unload():
-    global model, model_key
+    global model, model_key, model_parked
     if model is not None:
         try:
             model.model.model.unload_model()
@@ -65,7 +68,16 @@ def unload():
             if not is_gpu_error(exc):
                 raise
     model = model_key = None
+    model_parked = False
     gc.collect()
+
+
+def park_model():
+    """Release ASR VRAM, retaining the CTranslate2 weights in CPU memory."""
+    global model_parked
+    if model is not None and model_key[1] == "cuda" and not model_parked:
+        model.model.model.unload_model(to_cpu=True)
+        model_parked = True
 
 
 def whisperx_module():
@@ -99,7 +111,7 @@ def bundled_vad():
 
 
 def load(name: str, device: str, progress=None, quality="balanced", language=""):
-    global model, model_key
+    global model, model_key, model_parked
     key = (name, device, quality, language)
     if model_key != key:
         unload()
@@ -144,6 +156,9 @@ def load(name: str, device: str, progress=None, quality="balanced", language="")
             use_auth_token=False,
         )
         model, model_key = worker, key
+    elif model_parked:
+        model.model.model.load_model()
+        model_parked = False
     return model
 
 
@@ -165,6 +180,11 @@ def valid_language(language: str) -> bool:
 
 
 def alignment_resources(language, device, progress):
+    global alignment, alignment_language
+    if alignment is not None and alignment_language == language:
+        alignment[0].to(device)
+        return alignment
+
     import nltk
     from whisperx.alignment import (
         DEFAULT_ALIGN_MODELS_HF,
@@ -174,9 +194,14 @@ def alignment_resources(language, device, progress):
 
     if language not in DEFAULT_ALIGN_MODELS_HF and language not in DEFAULT_ALIGN_MODELS_TORCH:
         raise ValueError("No default alignment model for this language.")
+    # Bound memory to the most recently used language, rather than accumulating
+    # an alignment model for every language processed during this launch.
+    alignment = alignment_language = None
+    gc.collect()
     nltk_dir = MODELS_DIR / "alignment" / "nltk"
     nltk_dir.mkdir(parents=True, exist_ok=True)
-    nltk.data.path.insert(0, str(nltk_dir))
+    if str(nltk_dir) not in nltk.data.path:
+        nltk.data.path.insert(0, str(nltk_dir))
     punkt = PUNKT_LANGUAGES.get(language, "english")
     try:
         nltk.data.find(f"tokenizers/punkt_tab/{punkt}/")
@@ -211,6 +236,7 @@ def alignment_resources(language, device, progress):
         model_cache_only=marker.exists(),
     )
     marker.write_text(language + "\n", encoding="utf-8")
+    alignment, alignment_language = resources, language
     return resources
 
 
@@ -292,10 +318,11 @@ def align_segments(segments, audio, language, device, progress):
                 word["aligned"] = isinstance(score, (int, float)) and math.isfinite(score)
         return normalize_segments(result["segments"], language, len(audio) / 16000)
     finally:
-        del alignment_model
-        gc.collect()
-        torch = configure_libraries()
         if device == "cuda":
+            if alignment_model is not None:
+                alignment_model.to("cpu")
+            # Free temporary CUDA buffers, keeping cached weights in RAM.
+            torch = configure_libraries()
             torch.cuda.empty_cache()
 
 
@@ -323,9 +350,9 @@ def _run(audio, name, language, word_timestamps, device, progress, quality="bala
         batch_size=8 if device == "cuda" else 2,
         progress_callback=report,
     )
-    # ASR and alignment do not need to occupy GPU memory together.
+    # ASR and alignment share VRAM without re-reading ASR weights from disk.
     del worker
-    unload()
+    park_model()
     language = predicted["language"]
     segments = normalize_segments(predicted["segments"], language, duration)
     warning = None

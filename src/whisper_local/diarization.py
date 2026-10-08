@@ -81,6 +81,17 @@ def load_pipeline(device="cpu"):
     return pipeline
 
 
+def park_pipeline():
+    """Retain speaker models in RAM while transcription uses the GPU."""
+    global pipeline_device
+    if pipeline is not None and pipeline_device != "cpu":
+        import torch
+
+        pipeline.to(torch.device("cpu"))
+        pipeline_device = "cpu"
+        torch.cuda.empty_cache()
+
+
 def download(token: str, engine_lock: threading.Lock):
     try:
         with engine_lock:

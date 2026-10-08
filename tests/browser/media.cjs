@@ -39,10 +39,13 @@ async function run() {
     await page.evaluate(async () => {
       window.recorded = [];
       window.recordingStates = [];
+      window.recordingStreams = [];
       window.statusMessages = [];
       window.workspace = new AudioWorkspace({
         onRecorded: (file) => recorded.push(file),
         onRecordingChange: (active) => recordingStates.push(active),
+        onRecordingStreamChange: (stream, paused) =>
+          recordingStreams.push({ stream: Boolean(stream), paused }),
         onStatus: (message) => statusMessages.push(message),
       });
       // Two seconds of PCM silence: metadata and browser decoding are real.
@@ -159,6 +162,14 @@ async function run() {
       false,
       true,
       false,
+    ]);
+    assert.deepEqual(await page.evaluate(() => recordingStreams), [
+      { stream: true, paused: false },
+      { stream: true, paused: true },
+      { stream: true, paused: false },
+      { stream: false, paused: false },
+      { stream: true, paused: false },
+      { stream: false, paused: false },
     ]);
     // Cancel during a pending permission prompt: late-granted streams must close.
     const pendingCancelled = await page.evaluate(async () => {

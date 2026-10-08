@@ -66,6 +66,8 @@
   --border: #e6e6e5;
   --input: #e1e1e0;
   --ring: #858585;
+  --waveform-selection: rgba(38, 38, 38, 0.1);
+  --waveform-playhead: #c15b12;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -83,24 +85,27 @@
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  /* Neutral dark palette from graphicalui.com's editor chrome. */
+  --background: #171717;
+  --foreground: #eeeeee;
+  --card: #101010;
+  --card-foreground: #eeeeee;
+  --popover: #181818;
+  --popover-foreground: #eeeeee;
+  --primary: #eeeeee;
+  --primary-foreground: #101010;
+  --secondary: #242424;
+  --secondary-foreground: #eeeeee;
+  --muted: #242424;
+  --muted-foreground: #a3a3a3;
+  --accent: #404040;
+  --accent-foreground: #eeeeee;
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --border: #383838;
+  --input: #383838;
+  --ring: #a3a3a3;
+  --waveform-selection: rgba(238, 238, 238, 0.12);
+  --waveform-playhead: #ffb36a;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -145,10 +150,10 @@
     @apply bg-accent;
   }
   .segment.search-match {
-    @apply bg-amber-100/70;
+    @apply bg-amber-100/70 dark:bg-amber-400/15;
   }
   .segment.search-current {
-    @apply ring-2 ring-amber-300;
+    @apply ring-2 ring-amber-300 dark:ring-amber-400/70;
   }
   .segment-time-button {
     @apply self-start rounded-md px-1 py-2 font-mono text-xs text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50;

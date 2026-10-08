@@ -133,9 +133,14 @@ can override the model in advanced settings while keeping the chosen decoding
 quality. NVIDIA inference uses FP16; CPU inference uses INT8. A GPU runtime
 failure retries on CPU and disables GPU processing for the rest of that launch.
 
-Each recording runs in an isolated process so **Cancel** can stop native CPU/GPU
-work, including speaker detection. Model objects reload into memory for each
-recording; downloaded model files stay cached. Progress describes the current
+Recordings share a persistent, isolated inference process so models stay in memory
+between jobs. Whisper, the most recently used alignment language, and speaker models
+are reused; inactive models move to CPU memory while another stage uses the GPU.
+Changing Whisper settings or alignment language can replace the corresponding cache.
+**Cancel** still stops native CPU/GPU work by terminating the process, including
+speaker detection. The next recording starts a new worker and reloads its models.
+Closing the app also releases the cached models. Downloaded weights stay on disk.
+Progress describes the current
 stage, such as model download, loading, transcription, word alignment, or speaker detection.
 Percentages describe that stage or speaker-processing step, rather than an
 overall completion estimate or ETA.
@@ -153,7 +158,7 @@ seconds of synthesized English speech and already loaded models:
 The historical faster-whisper runs used beam size 1. These are two-run warm
 medians with no speaker detection. They exclude download, loading, decoding,
 and upload time;
-the WhisperX pipeline, alignment, new presets, and isolated workers have different end-to-end timings. They
+the WhisperX pipeline, alignment, new presets, and worker lifecycle have different end-to-end timings. They
 are not a general performance guarantee.
 See [benchmark data](docs/speed-benchmark.json).
 
@@ -242,8 +247,12 @@ Review the transcript and timestamps before using them.
 ## Development
 
 The application uses Flask/Waitress, React with Tailwind CSS and shadcn/ui (Base UI), and one
-isolated inference process at a time. A parent monitor receives stage updates
-through a one-way pipe and can terminate the process on cancellation. Audio is
+isolated inference process reused across jobs. A command pipe dispatches jobs;
+each job has its own one-way progress pipe. The parent waits for that pipe to close
+after inference returns before releasing the job reservation, and can terminate
+the process on cancellation. The worker caches one Whisper configuration, one
+alignment language, and the speaker pipeline, keeping inactive weights in CPU RAM.
+Audio is
 decoded once to mono 16 kHz, clipped to the selected range, and passed to
 the speaker model as a tensor, avoiding a separate shared FFmpeg installation.
 The frontend separates transcript editing, media controls, and the IndexedDB

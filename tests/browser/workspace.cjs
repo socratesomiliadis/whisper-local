@@ -207,9 +207,7 @@ async function run() {
       document.querySelector("#acceleration").textContent.includes("CPU"),
     );
     await page.locator("#quality").click();
-    await page
-      .getByRole("option", { name: "Accurate · best results", exact: true })
-      .click();
+    await page.getByRole("option", { name: "Accurate", exact: true }).click();
     await page.locator("#language").click();
     await page.getByRole("option", { name: "English", exact: true }).click();
     await page.locator("#advanced-settings").click();
@@ -249,7 +247,7 @@ async function run() {
       () => document.querySelector("#progress-percent").textContent === "40%",
     );
     assert.equal(
-      await page.locator("#progress-stage").textContent(),
+      await page.locator("#progress-bar").getAttribute("aria-label"),
       "Transcribing",
     );
     assert.equal(

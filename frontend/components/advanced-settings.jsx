@@ -1,11 +1,8 @@
-import {
-    Download,
-    LoaderCircle,
-    Zap,
-    SlidersHorizontal,
-    ChevronRight,
-} from "lucide-react";
+import { Download, Zap, SlidersHorizontal, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { ThinkingOrb } from "thinking-orbs";
+import { useDelayedActive } from "@/hooks/use-effects";
+import { useTheme } from "@/hooks/use-theme";
 import {
     Dialog,
     DialogTrigger,
@@ -25,7 +22,9 @@ import {
 } from "./workspace-controls";
 
 export function AdvancedSettings({ workspace: w }) {
+    const { resolvedTheme } = useTheme();
     const locked = w.busy || w.recording;
+    const showSetupOrb = useDelayedActive(w.setupBusy && w.advancedOpen);
     return (
         <Dialog
             open={w.advancedOpen}
@@ -50,7 +49,7 @@ export function AdvancedSettings({ workspace: w }) {
             >
                 <DialogHeader>
                     <DialogTitle>Advanced settings</DialogTitle>
-                    <DialogDescription>
+                    <DialogDescription className="sr-only">
                         Adjust the model, processing, and speaker detection.
                     </DialogDescription>
                 </DialogHeader>
@@ -102,7 +101,7 @@ export function AdvancedSettings({ workspace: w }) {
                                 Detect speakers
                             </PrefCheck>
                             <p className="mt-1 text-xs text-muted-foreground">
-                                Label different voices. Adds processing time.
+                                Adds processing time.
                             </p>
                         </div>
                         <div
@@ -113,7 +112,7 @@ export function AdvancedSettings({ workspace: w }) {
                             <PrefNumber
                                 workspace={w}
                                 id="speaker-count"
-                                label="Number of speakers (optional)"
+                                label="Number of speakers"
                                 min="1"
                                 max="20"
                                 step="1"
@@ -173,11 +172,17 @@ export function AdvancedSettings({ workspace: w }) {
                                         !w.speakers.installed
                                     }
                                     onClick={() => w.run("setupSpeakers")}
+                                    aria-busy={w.setupBusy}
                                 >
-                                    {w.setupBusy ? (
-                                        <LoaderCircle className="animate-spin" />
+                                    {showSetupOrb ? (
+                                        <ThinkingOrb
+                                            size={20}
+                                            state="working"
+                                            theme={resolvedTheme}
+                                            aria-hidden="true"
+                                        />
                                     ) : (
-                                        <Download />
+                                        <Download aria-hidden="true" />
                                     )}
                                     {w.setupBusy
                                         ? "Downloading…"
@@ -190,6 +195,7 @@ export function AdvancedSettings({ workspace: w }) {
                             <p
                                 id="speaker-status"
                                 role="status"
+                                hidden={!w.speakerMessage || w.setupBusy}
                                 className="text-xs leading-relaxed text-muted-foreground"
                             >
                                 {w.speakerMessage}

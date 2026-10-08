@@ -13,11 +13,22 @@ def isolate_state(monkeypatch):
     monkeypatch.setattr(api, "jobs", {})
     monkeypatch.setattr(api, "workers", {})
     monkeypatch.setattr(api, "upload_folders", {})
+    monkeypatch.setattr(api, "inference_worker", None)
+    monkeypatch.setattr(engine, "model", None)
+    monkeypatch.setattr(engine, "model_key", None)
+    monkeypatch.setattr(engine, "model_parked", False)
+    monkeypatch.setattr(engine, "alignment", None)
+    monkeypatch.setattr(engine, "alignment_language", None)
+    monkeypatch.setattr(diarization, "pipeline", None)
+    monkeypatch.setattr(diarization, "pipeline_device", "cpu")
+    monkeypatch.setattr(diarization, "gpu_failed", False)
     monkeypatch.setattr(diarization, "setup_state", {"state": "idle", "message": "Setup required."})
     monkeypatch.setattr(diarization, "ready", lambda: False)
     monkeypatch.setattr(diarization, "installed", lambda: True)
     monkeypatch.setattr(engine, "gpu_disabled_reason", None)
     monkeypatch.setattr(engine, "valid_language", lambda language: language in {"en", "el", "fr"})
+    yield
+    api.stop_workers()
 
 
 @pytest.fixture

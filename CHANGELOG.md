@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Reuse a persistent inference worker and in-memory Whisper, alignment, and speaker
+  models across recordings, sharing GPU memory between stages. Cancellation and
+  shutdown terminate the worker and release its caches.
 - WhisperX batched transcription and cached language-specific word alignment,
   with alignment progress, CPU recovery, and transcript preservation on alignment failure.
 - Word timestamps retained through speaker assignment, selected ranges, and JSON

@@ -235,12 +235,18 @@ def test_alignment_cache_and_sentence_resources(monkeypatch, tmp_path, cached):
         ),
     )
     wx = Mock()
-    wx.load_align_model.return_value = (object(), {})
+    align_model = Mock()
+    wx.load_align_model.return_value = (align_model, {})
     monkeypatch.setattr(engine, "whisperx_module", lambda: wx)
     engine.alignment_resources("en", "cpu", None)
     assert wx.load_align_model.call_args.kwargs["model_cache_only"] is cached
     assert wx.load_align_model.call_args.kwargs["model_dir"] == str(directory)
     assert (directory / ".ready").exists()
+    # Changing processing device transfers the cached weights, without loading
+    # the model or rechecking sentence resources a second time.
+    assert engine.alignment_resources("en", "cuda", None)[0] is align_model
+    wx.load_align_model.assert_called_once()
+    align_model.to.assert_called_once_with("cuda")
     nltk.download.assert_not_called()
     with pytest.raises(ValueError, match="No default alignment"):
         engine.alignment_resources("xx", "cpu", None)
@@ -260,3 +266,41 @@ def test_alignment_losing_text_preserves_original(monkeypatch, worker):
 
 
 REAL_ALIGN = engine.align_segments
+
+
+def test_repeated_transcription_reuses_asr_and_parks_gpu_weights(monkeypatch, tmp_path):
+    import sys
+
+    directory = tmp_path / "faster-whisper" / "base"
+    directory.mkdir(parents=True)
+    (directory / ".ready").touch()
+    (directory / "model.bin").touch()
+    monkeypatch.setattr(engine, "MODELS_DIR", tmp_path)
+    monkeypatch.setattr(engine, "configure_libraries", Mock())
+    monkeypatch.setattr(engine, "capabilities", lambda: {"gpu_available": True})
+    monkeypatch.setattr(engine, "bundled_vad", Mock())
+    monkeypatch.setitem(sys.modules, "huggingface_hub", SimpleNamespace(snapshot_download=Mock()))
+    wx = Mock()
+    wx.load_model.return_value.transcribe.return_value = {"language": "en", "segments": []}
+    monkeypatch.setattr(engine, "whisperx_module", lambda: wx)
+    for _ in range(2):
+        assert engine.transcribe([0] * 16000)["device"] == "cuda"
+    wx.load_model.assert_called_once()
+    native = wx.load_model.return_value.model.model
+    assert native.unload_model.call_count == 2
+    assert all(call.kwargs == {"to_cpu": True} for call in native.unload_model.call_args_list)
+    native.load_model.assert_called_once_with()
+    assert engine.model is wx.load_model.return_value and engine.model_parked
+
+
+def test_gpu_alignment_parks_cached_model_after_use(monkeypatch):
+    align_model = Mock()
+    monkeypatch.setattr(engine, "alignment_resources", lambda *args: (align_model, {}))
+    wx = Mock()
+    wx.align.return_value = {"segments": [{"start": 0, "end": 1, "text": "Hello."}]}
+    monkeypatch.setattr(engine, "whisperx_module", lambda: wx)
+    torch = Mock()
+    monkeypatch.setattr(engine, "configure_libraries", lambda: torch)
+    engine.align_segments(wx.align.return_value["segments"], [0] * 16000, "en", "cuda", None)
+    align_model.to.assert_called_once_with("cpu")
+    torch.cuda.empty_cache.assert_called_once()

@@ -89,3 +89,16 @@ def test_speaker_gpu_failure_retries_cpu(monkeypatch):
     assert d.detect(Mock())[0]["speaker"] == "A"
     assert worker.attempts == ["cuda", "cpu"]
     assert d.gpu_failed and d.pipeline_device == "cpu"
+
+
+def test_speaker_pipeline_survives_parking_and_resume(monkeypatch):
+    torch = SimpleNamespace(device=str, cuda=SimpleNamespace(empty_cache=Mock()))
+    monkeypatch.setitem(sys.modules, "torch", torch)
+    worker = Mock()
+    monkeypatch.setattr(d, "pipeline", worker)
+    monkeypatch.setattr(d, "pipeline_device", "cuda")
+    d.park_pipeline()
+    assert d.pipeline is worker and d.pipeline_device == "cpu"
+    assert d.load_pipeline("cuda") is worker
+    assert [call.args[0] for call in worker.to.call_args_list] == ["cpu", "cuda"]
+    torch.cuda.empty_cache.assert_called_once()

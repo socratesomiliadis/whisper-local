@@ -45,6 +45,7 @@ engine_lock = threading.Lock()
 ACTIVE_STATES = {"uploading", "loading", "transcribing", "diarizing"}
 workers: dict[str, dict] = {}
 upload_folders: dict[str, str] = {}
+inference_worker = None
 
 
 def stop_process(process):
@@ -54,6 +55,36 @@ def stop_process(process):
         if process.is_alive():
             process.kill()
             process.join(timeout=5)
+
+
+def discard_worker(control):
+    """Called under state_lock, including for an idle cached worker."""
+    global inference_worker
+    stop_process(control["process"])
+    control["commands"].close()
+    if inference_worker is control:
+        inference_worker = None
+
+
+def get_worker(context):
+    """Start lazily, then reuse this process until cancellation or a crash."""
+    global inference_worker
+    if inference_worker is not None:
+        if inference_worker["process"].is_alive():
+            return inference_worker
+        discard_worker(inference_worker)
+    receiver, commands = context.Pipe(duplex=False)
+    process = context.Process(target=_inference_worker, args=(receiver,), daemon=True)
+    control = {"process": process, "commands": commands}
+    try:
+        process.start()
+    except Exception:
+        discard_worker(control)
+        raise
+    finally:
+        receiver.close()
+    inference_worker = control
+    return control
 
 
 def stop_workers():
@@ -67,8 +98,8 @@ def stop_workers():
                     progress=None,
                     message="Transcription cancelled because the app closed.",
                 )
-        for control in workers.values():
-            stop_process(control["process"])
+        if inference_worker is not None:
+            discard_worker(inference_worker)
         folders = set(upload_folders.values()) | {control["folder"] for control in workers.values()}
         for folder in folders:
             shutil.rmtree(folder, ignore_errors=True)
@@ -92,8 +123,12 @@ def headers(response):
     response.headers["Cache-Control"] = "no-store"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "no-referrer"
+    # UI effects generate <style> elements at runtime. Allow those styles while
+    # retaining the existing restrictions on scripts and HTML style attributes.
     response.headers["Content-Security-Policy"] = (
-        "default-src 'self'; script-src 'self'; style-src 'self'; media-src 'self' blob:; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'"
+        "default-src 'self'; script-src 'self'; style-src 'self'; "
+        "style-src-elem 'self' 'unsafe-inline'; media-src 'self' blob:; "
+        "connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'"
     )
     return response
 
@@ -235,6 +270,8 @@ def transcribe(
                 range={"start": start_time, "end": range_end},
                 processed_seconds=0.0,
             )
+            # Keep the speaker weights in RAM while ASR/alignment use the GPU.
+            diarization.park_pipeline()
             result = engine.transcribe(
                 audio,
                 name=model_name,
@@ -312,13 +349,22 @@ def transcribe(
             shutil.rmtree(folder, ignore_errors=True)
 
 
-def _inference_worker(events, arguments, gpu_disabled_reason=None):
-    """Spawned process: even a blocking native inference call can be cancelled."""
-    engine.gpu_disabled_reason = gpu_disabled_reason
+def _inference_worker(commands):
+    """Cache models across jobs; a blocking native call can still be terminated."""
     try:
-        transcribe(*arguments, emit=lambda **values: events.send(values), cleanup=False)
+        while True:
+            try:
+                events, arguments, gpu_disabled_reason = commands.recv()
+            except EOFError:
+                break
+            engine.gpu_disabled_reason = gpu_disabled_reason
+            try:
+                transcribe(*arguments, emit=lambda **values: events.send(values), cleanup=False)
+            finally:
+                # EOF acknowledges that the job returned and released its audio.
+                events.close()
     finally:
-        events.close()
+        commands.close()
 
 
 def run_job(
@@ -334,59 +380,57 @@ def run_job(
     start_time=0.0,
     end_time=None,
 ):
-    events = sender = process = None
+    events = sender = control = None
     final_values = None
+    reusable = False
     try:
         context = multiprocessing.get_context("spawn")
         events, sender = context.Pipe(duplex=False)
-        process = context.Process(
-            target=_inference_worker,
-            args=(
-                sender,
-                (
-                    job_id,
-                    folder,
-                    path,
-                    model_name,
-                    language,
-                    detect_speakers,
-                    num_speakers,
-                    processing,
-                    quality,
-                    start_time,
-                    end_time,
-                ),
-                engine.gpu_disabled_reason,
-            ),
-            daemon=True,
+        arguments = (
+            job_id,
+            folder,
+            path,
+            model_name,
+            language,
+            detect_speakers,
+            num_speakers,
+            processing,
+            quality,
+            start_time,
+            end_time,
         )
         # Publish and start atomically: cancellation cannot miss a starting process.
         with state_lock:
             if jobs[job_id]["state"] == "cancelled":
                 return
-            workers[job_id] = {"process": process, "folder": folder}
-            process.start()
+            control = get_worker(context)
+            process = control["process"]
+            workers[job_id] = {**control, "folder": folder, "worker": control}
+            control["commands"].send((sender, arguments, engine.gpu_disabled_reason))
             # Only the child holds the write end. Killing it during a large
             # result send produces EOF instead of leaving the monitor blocked.
             sender.close()
-        terminal = False
-        while not terminal:
-            if events.poll(0.1):
-                try:
-                    values = events.recv()
-                except EOFError:
+        terminal_deadline = None
+        while True:
+            try:
+                values = events.recv() if events.poll(0.1) else None
+            except (EOFError, BrokenPipeError):
+                # On Windows, poll itself can report the closed write end.
+                reusable = final_values is not None
+                if final_values is None:
                     final_values = {
                         "state": "error",
                         "message": "The transcription worker stopped unexpectedly. Try again.",
                     }
-                    break
+                break
+            if values is not None:
                 if values.get("gpu_fallback"):
                     engine.gpu_disabled_reason = (
                         "GPU acceleration failed; using CPU for this session."
                     )
-                terminal = values.get("state") in {"complete", "error"}
-                if terminal:
+                if values.get("state") in {"complete", "error"}:
                     final_values = values
+                    terminal_deadline = time.monotonic() + 5
                 else:
                     update_job(job_id, **values)
             else:
@@ -395,12 +439,14 @@ def run_job(
                 if cancelled:
                     break
                 if not process.is_alive():
-                    final_values = {
+                    final_values = final_values or {
                         "state": "error",
                         "message": "The transcription worker stopped unexpectedly. Try again.",
                     }
                     break
-        process.join(timeout=1)
+            if terminal_deadline is not None and time.monotonic() >= terminal_deadline:
+                # A terminal event alone is not proof that native work has stopped.
+                break
     except Exception:
         logging.exception("Could not run transcription worker")
         final_values = {
@@ -409,8 +455,8 @@ def run_job(
         }
     finally:
         with state_lock:
-            if process is not None:
-                stop_process(process)
+            if control is not None and (not reusable or not control["process"].is_alive()):
+                discard_worker(control)
             if events is not None:
                 events.close()
             if sender is not None:
@@ -435,8 +481,7 @@ def cancel_job(job_id):
         control = workers.get(job_id)
         # Stop native CPU/GPU work before exposing a terminal job to the queue.
         if control:
-            process = control["process"]
-            stop_process(process)
+            discard_worker(control["worker"])
             shutil.rmtree(control["folder"], ignore_errors=True)
         job.update(
             state="cancelled", stage="cancelled", progress=None, message="Transcription cancelled."

@@ -58,10 +58,6 @@ export function LibraryPanel({ workspace: w }) {
                         Keep audio for playback
                     </PrefCheck>
                 </div>
-                <p className="mt-2 text-xs text-muted-foreground">
-                    Saved on this computer, in this browser. Export a copy to
-                    keep it elsewhere.
-                </p>
             </Disclosure>
             <p
                 id="history-empty"
@@ -69,8 +65,8 @@ export function LibraryPanel({ workspace: w }) {
                 className="mt-2 rounded-2xl bg-background px-4 py-4 text-sm leading-relaxed text-muted-foreground"
             >
                 {w.prefs["save-history"]
-                    ? "No saved transcripts yet. Completed transcripts save here automatically."
-                    : "No saved transcripts. Automatic saving is off."}
+                    ? "No saved transcripts"
+                    : "Autosave is off"}
             </p>
             <ul id="history-list" className="space-y-2">
                 {w.records.map((record) => (

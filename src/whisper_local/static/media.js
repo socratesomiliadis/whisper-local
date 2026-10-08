@@ -24,6 +24,8 @@ window.AudioWorkspace = class AudioWorkspace {
     this.recordingPending = false;
     this.recordingFinishing = false;
     this.reportedRecordingState = false;
+    this.reportedRecordingStream = null;
+    this.reportedRecordingPaused = false;
     this.recordingGeneration = 0;
     this.recordingTimer = null;
     this.drawFrame = null;
@@ -71,6 +73,7 @@ window.AudioWorkspace = class AudioWorkspace {
     });
     this.listen(this.audio, "timeupdate", () => this.scheduleDraw());
     this.listen(this.audio, "seeked", () => this.scheduleDraw());
+    this.listen(window, "whisper-theme-change", () => this.scheduleDraw());
     this.listen(window, "pagehide", () => this.stopRecording(true));
     if (this.canvas) {
       this.canvas.tabIndex = 0;
@@ -188,9 +191,7 @@ window.AudioWorkspace = class AudioWorkspace {
       }
       this.peaks = peaks;
       this.updateRangeLimits();
-      this.waveformStatus(
-        "Drag across the waveform to select a transcription range. Click to seek.",
-      );
+      this.waveformStatus("Drag to select a range · Click to seek");
       this.scheduleDraw();
     } catch (_) {
       if (generation === this.generation && !this.disposed) {
@@ -431,17 +432,17 @@ window.AudioWorkspace = class AudioWorkspace {
     if (!ctx) return;
     ctx.scale(ratio, ratio);
     ctx.clearRect(0, 0, width, height);
+    const styles = getComputedStyle(document.documentElement);
     if (this.selection && this.duration) {
-      ctx.fillStyle = "rgba(38, 38, 38, 0.1)";
+      ctx.fillStyle =
+        styles.getPropertyValue("--waveform-selection").trim() ||
+        "rgba(38, 38, 38, 0.1)";
       const x = (this.selection.start / this.duration) * width;
       const end =
         ((this.selection.end ?? this.duration) / this.duration) * width;
       ctx.fillRect(x, 0, Math.max(0, end - x), height);
     }
-    ctx.strokeStyle =
-      getComputedStyle(document.documentElement)
-        .getPropertyValue("--primary")
-        .trim() || "#262626";
+    ctx.strokeStyle = styles.getPropertyValue("--primary").trim() || "#262626";
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     if (this.peaks && this.peaks.length) {
@@ -465,7 +466,8 @@ window.AudioWorkspace = class AudioWorkspace {
         0,
         Math.min(width, (this.audio.currentTime / this.duration) * width),
       );
-      ctx.strokeStyle = "#f97316";
+      ctx.strokeStyle =
+        styles.getPropertyValue("--waveform-playhead").trim() || "#f97316";
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(x, 0);
@@ -692,6 +694,17 @@ window.AudioWorkspace = class AudioWorkspace {
       this.reportedRecordingState = active;
       if (this.options.onRecordingChange)
         this.options.onRecordingChange(active);
+    }
+    const stream =
+      this.recorder?.state === "recording" || paused ? this.stream : null;
+    const streamPaused = Boolean(stream && paused);
+    if (
+      stream !== this.reportedRecordingStream ||
+      streamPaused !== this.reportedRecordingPaused
+    ) {
+      this.reportedRecordingStream = stream;
+      this.reportedRecordingPaused = streamPaused;
+      this.options.onRecordingStreamChange?.(stream, streamPaused);
     }
   }
 

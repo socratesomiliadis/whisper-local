@@ -1,5 +1,6 @@
 import importlib
 import json
+import os
 import threading
 import time
 from pathlib import Path
@@ -21,6 +22,9 @@ def test_host_and_api_token(client, headers):
     assert page.status_code == 200
     assert api.TOKEN.encode() in page.data
     assert "frame-ancestors 'none'" in page.headers["Content-Security-Policy"]
+    assert "style-src-elem 'self' 'unsafe-inline';" in page.headers["Content-Security-Policy"]
+    assert "style-src 'self';" in page.headers["Content-Security-Policy"]
+    assert "script-src 'self';" in page.headers["Content-Security-Policy"]
     assert page.headers["Cache-Control"] == "no-store"
     assert client.get("/static/app.js").status_code == 200
 
@@ -266,31 +270,116 @@ def test_cancel_missing_finished_and_queued_jobs(client, headers):
     assert "text" not in api.jobs["queued"]
 
 
-def _blocking_inference_worker(events, arguments, gpu_disabled_reason=None):
+def _blocking_inference_worker(commands):
+    events, arguments, _ = commands.recv()
     # A real spawned process models a native operation that never yields progress.
     Path(arguments[1], "started").write_text("running")
     while True:
         time.sleep(0.1)
 
 
-def _completed_inference_worker(events, arguments, gpu_disabled_reason=None):
+def _completed_inference_worker(commands):
+    events, arguments, _ = commands.recv()
     events.send({"state": "complete", "text": "Finished.", "segments": [], "gpu_fallback": True})
     events.close()
 
 
-def _exited_inference_worker(events, arguments, gpu_disabled_reason=None):
+def _exited_inference_worker(commands):
+    events, arguments, _ = commands.recv()
     events.close()
 
 
-def _lingering_terminal_worker(events, arguments, gpu_disabled_reason=None):
+def _lingering_terminal_worker(commands):
+    events, arguments, _ = commands.recv()
     events.send({"state": arguments[3], "text": "Finished.", "message": "Finished."})
     Path(arguments[1], "sent").write_text("sent")
     while True:
         time.sleep(0.1)
 
 
+def _reusable_inference_worker(commands):
+    # Exercise the production command loop in a real spawned process, with
+    # deterministic inference instead of downloaded model weights.
+    completed = 0
+
+    def predict(*arguments, emit, cleanup):
+        nonlocal completed
+        if arguments[3] == "block":
+            Path(arguments[1], "started").write_text("running")
+            while True:
+                time.sleep(0.1)
+        completed += 1
+        emit(
+            state="error" if arguments[3] == "fail" else "complete",
+            worker_pid=os.getpid(),
+            completed=completed,
+            text="Finished.",
+        )
+
+    api.transcribe = predict
+    api._inference_worker(commands)
+
+
+def test_successful_and_failed_jobs_reuse_worker_and_shutdown_releases_it(monkeypatch, tmp_path):
+    monkeypatch.setattr(api, "_inference_worker", _reusable_inference_worker)
+    processes = []
+    for index, model in enumerate(["base", "base", "fail", "base"]):
+        job_id = str(index)
+        folder = tmp_path / job_id
+        folder.mkdir()
+        api.jobs[job_id] = {"state": "loading"}
+        api.run_job(job_id, str(folder), "clip.wav", model, "")
+        assert api.jobs[job_id]["state"] == ("error" if model == "fail" else "complete")
+        assert api.jobs[job_id]["completed"] == index + 1
+        assert not folder.exists() and not api.workers
+        processes.append(api.inference_worker["process"])
+        assert processes[-1].is_alive()
+    assert all(process is processes[0] for process in processes)
+    assert len({job["worker_pid"] for job in api.jobs.values()}) == 1
+    api.stop_workers()
+    assert api.inference_worker is None and not processes[0].is_alive()
+
+
+def test_cancellation_replaces_warm_worker_for_next_job(client, headers, monkeypatch, tmp_path):
+    monkeypatch.setattr(api, "_inference_worker", _reusable_inference_worker)
+    warm_folder = tmp_path / "warm"
+    warm_folder.mkdir()
+    api.jobs["warm"] = {"state": "loading"}
+    api.run_job("warm", str(warm_folder), "clip.wav", "base", "")
+    original_process = api.inference_worker["process"]
+    folder = tmp_path / "blocking"
+    folder.mkdir()
+    api.jobs["blocking"] = {"state": "loading"}
+    monitor = threading.Thread(
+        target=api.run_job, args=("blocking", str(folder), "clip.wav", "block", "")
+    )
+    monitor.start()
+    try:
+        deadline = time.monotonic() + 15
+        while not (folder / "started").exists() and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert (folder / "started").exists()
+        assert (
+            client.post("/api/jobs/blocking/cancel", headers=headers).json["state"] == "cancelled"
+        )
+        assert not original_process.is_alive() and api.inference_worker is None
+        # Start immediately, while the cancelled job's monitor may still be unwinding.
+        next_folder = tmp_path / "next"
+        next_folder.mkdir()
+        api.jobs["next"] = {"state": "loading"}
+        api.run_job("next", str(next_folder), "clip.wav", "base", "")
+        assert api.jobs["next"]["state"] == "complete"
+        assert api.jobs["next"]["completed"] == 1
+        assert api.inference_worker["process"] is not original_process
+        assert api.inference_worker["process"].is_alive()
+    finally:
+        api.stop_workers()
+        monitor.join(timeout=10)
+    assert not monitor.is_alive() and not folder.exists()
+
+
 @pytest.mark.parametrize("terminal_state", ["complete", "error"])
-def test_terminal_state_waits_for_worker_exit_before_next_job_or_setup(
+def test_terminal_state_waits_for_job_acknowledgement_before_next_job_or_setup(
     client, headers, upload, monkeypatch, tmp_path, terminal_state
 ):
     folder = tmp_path / "upload"

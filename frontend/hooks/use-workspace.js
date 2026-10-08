@@ -78,6 +78,8 @@ const initial = () => ({
   prefs: preferences(),
   busy: false,
   recording: false,
+  recordingStream: null,
+  recordingPaused: false,
   ready: false,
   setupBusy: false,
   advancedOpen: false,
@@ -92,7 +94,7 @@ const initial = () => ({
   resultName: "",
   activeJob: null,
   progress: null,
-  message: "Choose a recording to begin.",
+  message: "",
   messageType: "",
   historyMessage: "",
   copied: false,
@@ -206,6 +208,9 @@ function createWorkspace(start, update) {
     onRecordingChange(recording) {
       patch({ recording });
     },
+    onRecordingStreamChange(recordingStream, recordingPaused) {
+      patch({ recordingStream, recordingPaused });
+    },
     onStatus: status,
   });
   const playback = () => editor.setPlaybackTime(el("audio-player").currentTime);
@@ -302,10 +307,7 @@ function createWorkspace(start, update) {
       selectedId: entry?.id || null,
     });
     status(
-      data.warning ||
-        (data.text?.trim()
-          ? "Done. Review, edit, or export your transcript."
-          : "Finished. No speech was detected."),
+      data.warning || (data.text?.trim() ? "" : "No speech detected."),
       data.warning ? "error" : "success",
     );
   }
@@ -348,7 +350,10 @@ function createWorkspace(start, update) {
         selecting = false;
       }
       status(
-        `${accepted.length > 1 ? `${accepted.length} recordings queued.` : "Ready when you are."}${rejected.length ? ` Skipped ${rejected.length} unsupported, empty, or oversized files.` : ""}`,
+        rejected.length
+          ? `Skipped ${rejected.length} unsupported, empty, or oversized files.`
+          : "",
+        rejected.length ? "error" : "",
       );
     } else if (rejected.length)
       status(
@@ -389,9 +394,10 @@ function createWorkspace(start, update) {
       speakerMessage: !speakers.installed
         ? "Run Setup.ps1 and restart the app to install speaker detection."
         : speakers.ready
-          ? "Speaker model ready. Works offline."
-          : speakers.message ||
-            "Download the speaker model to enable detection.",
+          ? ""
+          : speakers.state === "error"
+            ? speakers.message
+            : "",
     });
   }
   async function pollSpeakers() {
@@ -437,7 +443,7 @@ function createWorkspace(start, update) {
   function progress(data) {
     patch({ progress: data });
     if (!stopQueue)
-      status(data.message || "Processing your recording…", "working");
+      status(data.message || "Processing your recording…", "progress");
   }
   async function poll(id) {
     let failures = 0;
@@ -609,11 +615,13 @@ function createWorkspace(start, update) {
     record = saved;
     await preview(saved.audio || null);
     showResult(saved.result, null, saved);
-    status(
-      saved.audio
-        ? "Saved transcript opened with audio."
-        : "Saved transcript opened. Use Attach audio to restore playback.",
-    );
+    if (!saved.result.warning)
+      status(
+        saved.audio
+          ? "Saved transcript opened with audio."
+          : "Saved transcript opened. Use Attach audio to restore playback.",
+        "routine",
+      );
   }
   async function deleteRecord(id) {
     if (state.busy) return;
@@ -700,7 +708,7 @@ function createWorkspace(start, update) {
     }
     await preview(file);
     await saveCurrent();
-    status("Audio attached. Your transcript edits are ready for review.");
+    status("");
   }
   async function init() {
     refreshHistory();
@@ -794,9 +802,7 @@ function createWorkspace(start, update) {
     },
     fastMode: () => {
       setPref("quality", "fast");
-      status(
-        "Fast mode uses Tiny with quick decoding and speaker detection off. Review the draft for accuracy.",
-      );
+      status("");
     },
     removeEntry: async (id) => {
       if (state.busy || state.recording) return;

@@ -1,8 +1,4 @@
 import {
-    LoaderCircle,
-    FileText,
-    AudioLines,
-    ArrowRight,
     Undo2,
     Redo2,
     FileAudio,
@@ -15,6 +11,9 @@ import {
     Download,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { BotAvatar } from "bot-avatars";
+import { useEffectPreferences } from "@/hooks/use-effects";
+import { useTheme } from "@/hooks/use-theme";
 import { createPortal } from "react-dom";
 import {
     Action,
@@ -28,6 +27,8 @@ const audioTypes =
     ".mp3,.wav,.m4a,.flac,.ogg,.opus,.webm,.aac,.mp4,.wma,.aiff,.aif";
 
 export function TranscriptPanel({ workspace: w }) {
+    const { resolvedTheme } = useTheme();
+    const { visible, reducedMotion } = useEffectPreferences();
     return (
         <section
             className="flex min-w-0 flex-col overflow-hidden rounded-3xl bg-card"
@@ -48,52 +49,35 @@ export function TranscriptPanel({ workspace: w }) {
                         {w.result ? w.resultName : "Transcript"}
                     </h2>
                 </div>
-                <span className="shrink-0 rounded-full bg-background px-3 py-1.5 text-[11px] text-muted-foreground">
-                    {w.result
-                        ? "Editable transcript"
-                        : w.busy
-                          ? "In progress"
-                          : "Ready when you are"}
-                </span>
             </div>
             <div
                 id="empty"
                 hidden={w.result}
                 className="flex min-h-95 flex-1 flex-col items-center justify-center px-6 py-12 text-center lg:min-h-125"
             >
-                {w.busy ? (
-                    <span className="mb-6 flex size-16 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
-                        <LoaderCircle
-                            aria-hidden="true"
-                            className="size-7 animate-spin motion-reduce:animate-none"
-                        />
-                    </span>
-                ) : (
-                    <TranscriptIllustration />
-                )}
-                <h3 className="text-xl font-medium tracking-[-0.04em] sm:text-2xl">
-                    {w.busy
-                        ? "Turning audio into text"
-                        : "Good words start here."}
-                </h3>
-                <p className="mt-3 max-w-72 text-sm leading-6 text-muted-foreground">
-                    {w.busy
-                        ? "You can follow progress beside your recording."
-                        : "Drop in a recording and let Whisper do the listening. Your editable transcript will appear here."}
-                </p>
-                <div
-                    aria-hidden="true"
-                    className="mt-7 flex flex-wrap justify-center gap-2"
-                >
-                    {["Edit", "Copy", "Export"].map((label) => (
-                        <span
-                            key={label}
-                            className="rounded-full bg-background px-3.5 py-1.5 text-xs text-muted-foreground"
-                        >
-                            {label}
-                        </span>
-                    ))}
+                <div className="mb-7 flex size-24 items-center justify-center">
+                    <BotAvatar
+                        theme={resolvedTheme}
+                        type="cat"
+                        shading="crisp"
+                        glasses="round"
+                        size={96}
+                        state={w.busy ? "working" : "default"}
+                        paused={!visible || reducedMotion || w.result}
+                        data-slot="transcript-avatar"
+                        aria-label={
+                            w.busy
+                                ? "Whisper bot, working"
+                                : "Whisper bot, ready"
+                        }
+                    />
                 </div>
+                <h3
+                    hidden={w.busy}
+                    className="text-base font-medium tracking-tight text-muted-foreground"
+                >
+                    Your transcript will appear here
+                </h3>
             </div>
             <div id="results" hidden={!w.result} className="p-5 sm:p-6">
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -218,21 +202,17 @@ export function TranscriptPanel({ workspace: w }) {
                         Add a speaker
                     </Action>
                 </Disclosure>
-                <p className="my-3 text-xs leading-relaxed text-muted-foreground">
-                    Edit text, timestamps, and speakers below. Changes apply to
-                    every export.
-                </p>
                 <textarea
                     id="transcript"
                     readOnly
                     aria-label="Transcript text"
                     spellCheck={false}
-                    className="min-h-80 w-full resize-y rounded-2xl bg-background p-4 text-sm leading-7 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="mt-3 min-h-80 w-full resize-y rounded-2xl bg-background p-4 text-sm leading-7 outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 />
                 <div
                     id="segments"
                     hidden
-                    className="max-h-145 space-y-3 overflow-y-auto pr-1"
+                    className="mt-3 max-h-145 space-y-3 overflow-y-auto pr-1"
                 />
                 {w.speakerSelects.map(({ container, index, ...props }) =>
                     createPortal(
@@ -307,31 +287,5 @@ export function TranscriptPanel({ workspace: w }) {
                 </Disclosure>
             </div>
         </section>
-    );
-}
-
-function TranscriptIllustration() {
-    return (
-        <div
-            aria-hidden="true"
-            className="relative mb-7 flex h-32 w-48 items-center justify-center"
-        >
-            <div className="absolute left-4 top-8 flex size-16 -rotate-12 items-center justify-center rounded-2xl bg-[#dceaff] text-[#3674ce] ring-4 ring-card">
-                <AudioLines className="size-8" strokeWidth={1.75} />
-            </div>
-            <div className="absolute right-7 top-2 h-24 w-19 rotate-12 rounded-2xl bg-[#fff0bc]" />
-            <div className="absolute right-9 top-4 flex h-24 w-19 -rotate-6 flex-col gap-2 rounded-2xl bg-card px-4 py-3 shadow-[0_4px_12px_#00000008]">
-                <FileText
-                    className="mb-1 size-5 text-foreground"
-                    strokeWidth={1.5}
-                />
-                <span className="h-1.5 w-full rounded-full bg-muted" />
-                <span className="h-1.5 w-full rounded-full bg-muted" />
-                <span className="h-1.5 w-2/3 rounded-full bg-muted" />
-            </div>
-            <div className="absolute bottom-1 right-4 flex size-10 rotate-[-8deg] items-center justify-center rounded-xl bg-[#f9dce9] text-[#b65b86] ring-4 ring-card">
-                <ArrowRight className="size-5" strokeWidth={1.75} />
-            </div>
-        </div>
     );
 }

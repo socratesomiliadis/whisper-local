@@ -1,6 +1,5 @@
 import { useState } from "react";
 import {
-    AudioLines,
     ArrowUpFromLine,
     FileAudio,
     Mic,
@@ -9,14 +8,17 @@ import {
     RotateCcw,
     RotateCw,
     X,
-    LoaderCircle,
     ArrowRight,
     Download,
 } from "lucide-react";
+import { VoiceBeam, getAudioContext } from "voice-glow";
+import { useDelayedActive, useEffectPreferences } from "@/hooks/use-effects";
 import { AdvancedSettings } from "./advanced-settings";
+import { TranscribeIndicator } from "./transcribe-indicator";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { stages } from "@/hooks/use-workspace";
+import { useTheme } from "@/hooks/use-theme";
 import {
     Action,
     Field,
@@ -49,7 +51,11 @@ const languages = [
 ];
 
 export function AudioPanel({ workspace: w }) {
+    const { resolvedTheme } = useTheme();
     const [dragging, setDragging] = useState(false);
+    const { visible, reducedMotion } = useEffectPreferences();
+    const showOrb = useDelayedActive(w.busy);
+    const liveVoice = Boolean(w.recordingStream) && !w.recordingPaused;
     const locked = w.busy || w.recording;
     const pending = w.queue.filter((entry) => entry.state === "queued").length;
     const disabled =
@@ -112,7 +118,7 @@ export function AudioPanel({ workspace: w }) {
                     w.run("chooseFiles", Array.from(event.dataTransfer.files));
                 }}
             >
-                <span className="mb-2 flex size-11 -rotate-6 items-center justify-center rounded-xl bg-[#fff0c2] text-[#8c6b26] ring-[3px] ring-card transition-transform group-hover/upload:rotate-0">
+                <span className="mb-2 flex size-11 -rotate-6 items-center justify-center rounded-xl bg-amber-100 text-amber-800 ring-[3px] ring-card transition-transform group-hover/upload:rotate-0 dark:bg-amber-400/15 dark:text-amber-300">
                     {w.file ? (
                         <FileAudio aria-hidden="true" className="size-5" />
                     ) : (
@@ -128,48 +134,72 @@ export function AudioPanel({ workspace: w }) {
                 >
                     {w.file?.name || "Choose or drop audio"}
                 </strong>
+                {w.file ? (
+                    <span
+                        id="file-detail"
+                        className="text-xs text-muted-foreground"
+                    >
+                        {(w.file.size / 1024 / 1024).toFixed(1)} MB
+                    </span>
+                ) : null}
                 <span
-                    id="file-detail"
-                    className="text-xs text-muted-foreground"
+                    hidden={!!w.file}
+                    className="mt-1 text-xs text-muted-foreground"
                 >
-                    {w.file
-                        ? `${(w.file.size / 1024 / 1024).toFixed(1)} MB · Click to add more`
-                        : "Select one or several recordings"}
-                </span>
-                <span className="mt-1 text-xs text-muted-foreground">
                     MP3, WAV, M4A and more · Up to 500 MB
                 </span>
             </button>
             <Disclosure title="Record audio" icon={Mic} className="mt-3">
-                <div className="flex flex-wrap gap-2">
-                    <Action id="record-start">
-                        <Mic />
-                        Record
-                    </Action>
-                    <Action id="record-pause">
-                        <Pause />
-                        <span data-label>Pause</span>
-                    </Action>
-                    <Action id="record-stop">
-                        <Square />
-                        Stop &amp; preview
-                    </Action>
-                    <Action id="record-discard" variant="ghost">
-                        Discard
-                    </Action>
-                </div>
-                <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-                    <span
-                        id="recording-time"
-                        className="font-mono tabular-nums"
-                    >
-                        0:00
-                    </span>
-                    <span className="mx-2">·</span>
-                    <span id="recording-status" role="status">
-                        Ready to record.
-                    </span>
-                </p>
+                <VoiceBeam
+                    type="default"
+                    theme={resolvedTheme}
+                    stream={liveVoice && visible ? w.recordingStream : null}
+                    active={liveVoice && visible}
+                    paused={!visible || w.recordingPaused}
+                    className="w-full"
+                >
+                    <div className="rounded-xl bg-background p-3">
+                        <div className="relative z-5 flex flex-wrap gap-2">
+                            <Action
+                                id="record-start"
+                                aria-pressed={Boolean(w.recordingStream)}
+                                onClick={() => getAudioContext()}
+                            >
+                                <Mic />
+                                Record
+                            </Action>
+                            <Action
+                                id="record-pause"
+                                onClick={() => getAudioContext()}
+                            >
+                                <Pause />
+                                <span data-label>Pause</span>
+                            </Action>
+                            <Action id="record-stop">
+                                <Square />
+                                Stop &amp; preview
+                            </Action>
+                            <Action id="record-discard" variant="ghost">
+                                Discard
+                            </Action>
+                        </div>
+                        <p
+                            hidden={!w.recording}
+                            className="relative z-5 mt-3 text-xs leading-relaxed text-muted-foreground"
+                        >
+                            <span
+                                id="recording-time"
+                                className="font-mono tabular-nums"
+                            >
+                                0:00
+                            </span>
+                            <span className="mx-2">·</span>
+                            <span id="recording-status" role="status">
+                                Ready to record.
+                            </span>
+                        </p>
+                    </div>
+                </VoiceBeam>
             </Disclosure>
             <audio
                 id="audio-player"
@@ -190,7 +220,7 @@ export function AudioPanel({ workspace: w }) {
                 />
                 <p
                     id="waveform-status"
-                    className="mt-2 text-xs leading-relaxed text-muted-foreground"
+                    className="mt-2 text-xs leading-relaxed text-muted-foreground empty:hidden"
                     role="status"
                 />
                 <Disclosure title="Playback and audio range" className="mt-1">
@@ -266,8 +296,8 @@ export function AudioPanel({ workspace: w }) {
                     label="Quality"
                     options={[
                         ["fast", "Fast · quick draft"],
-                        ["balanced", "Balanced · everyday use"],
-                        ["accurate", "Accurate · best results"],
+                        ["balanced", "Balanced"],
+                        ["accurate", "Accurate"],
                     ]}
                     disabled={locked}
                 />
@@ -280,31 +310,51 @@ export function AudioPanel({ workspace: w }) {
                 />
             </div>
             <AdvancedSettings workspace={w} />
-            <Action
-                id="transcribe"
-                variant="default"
-                className="mt-5 h-12 w-full rounded-full px-5 disabled:opacity-35"
-                disabled={disabled}
-                onClick={() => w.run("transcribe")}
+            <div
+                className="mt-5 w-full"
+                title={w.busy ? w.progress?.message : undefined}
             >
-                {w.busy ? (
-                    <LoaderCircle className="animate-spin" />
-                ) : (
-                    <AudioLines />
-                )}
-                {w.busy
-                    ? "Transcribing…"
-                    : pending > 1
-                      ? `Transcribe ${pending} recordings`
-                      : "Transcribe audio"}
-                {!w.busy ? <ArrowRight className="ml-auto" /> : null}
-            </Action>
+                <Action
+                    id="transcribe"
+                    variant="default"
+                    className={cn(
+                        "h-12 w-full rounded-full px-5 disabled:opacity-35",
+                        w.busy && "disabled:opacity-100",
+                    )}
+                    disabled={disabled}
+                    aria-busy={w.busy}
+                    onClick={() => w.run("transcribe")}
+                >
+                    <TranscribeIndicator
+                        active={showOrb}
+                        stage={w.progress?.stage || w.progress?.state}
+                        paused={!visible || reducedMotion}
+                    />
+                    {w.busy
+                        ? `${stages[w.progress?.stage || w.progress?.state] || "Processing"}…`
+                        : pending > 1
+                          ? `Transcribe ${pending} recordings`
+                          : "Transcribe audio"}
+                    <ArrowRight
+                        aria-hidden="true"
+                        className={cn(
+                            "ml-auto transition-[opacity,scale] duration-400 motion-reduce:transition-none",
+                            w.busy
+                                ? "scale-75 opacity-0"
+                                : "scale-100 opacity-100",
+                        )}
+                    />
+                </Action>
+            </div>
             <div
                 id="status"
                 role="status"
                 aria-live="polite"
+                hidden={!w.message || w.messageType === "routine"}
                 className={cn(
-                    "mt-3 text-xs leading-relaxed text-muted-foreground",
+                    w.messageType === "progress"
+                        ? "sr-only"
+                        : "mt-3 text-xs leading-relaxed text-muted-foreground",
                     w.messageType === "error" &&
                         "rounded-lg bg-destructive/5 p-3 text-destructive",
                     w.messageType === "success" && "text-primary",
@@ -315,30 +365,32 @@ export function AudioPanel({ workspace: w }) {
             <div
                 id="job-progress"
                 hidden={!w.progress}
-                className="mt-4 space-y-3"
+                className="mt-3 space-y-3"
             >
-                <div className="flex items-center justify-between text-xs">
-                    <span id="progress-stage">
-                        {stages[w.progress?.stage || w.progress?.state] ||
-                            "Processing"}
-                    </span>
-                    <span id="progress-percent">
+                <div className="flex items-center gap-3">
+                    <progress
+                        id="progress-bar"
+                        className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full"
+                        max="1"
+                        value={
+                            typeof w.progress?.progress === "number"
+                                ? w.progress.progress
+                                : undefined
+                        }
+                        aria-label={
+                            stages[w.progress?.stage || w.progress?.state] ||
+                            "Processing"
+                        }
+                    />
+                    <span
+                        id="progress-percent"
+                        className="shrink-0 text-xs tabular-nums"
+                    >
                         {typeof w.progress?.progress === "number"
                             ? `${Math.round(w.progress.progress * 100)}%`
                             : ""}
                     </span>
                 </div>
-                <progress
-                    id="progress-bar"
-                    className="h-1.5 w-full overflow-hidden rounded-full"
-                    max="1"
-                    value={
-                        typeof w.progress?.progress === "number"
-                            ? w.progress.progress
-                            : undefined
-                    }
-                    aria-label="Current processing stage"
-                />
                 <Action
                     id="cancel-job"
                     disabled={!w.activeJob}
@@ -348,10 +400,6 @@ export function AudioPanel({ workspace: w }) {
                     Cancel transcription
                 </Action>
             </div>
-            <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-                Models download on first use. After that, transcription works
-                offline.
-            </p>
             <section
                 id="queue-panel"
                 hidden={!w.queue.length}
@@ -437,9 +485,6 @@ export function AudioPanel({ workspace: w }) {
                         Download all results (.zip)
                     </Action>
                 </div>
-                <p className="mt-2 text-xs text-muted-foreground">
-                    Files run one at a time. Keep this tab open.
-                </p>
             </section>
         </section>
     );
