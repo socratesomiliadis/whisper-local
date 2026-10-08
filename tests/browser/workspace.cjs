@@ -205,13 +205,16 @@ async function run() {
       document.querySelector("#acceleration").textContent.includes("CPU"),
     );
     await page.locator("#quality").selectOption("accurate");
-    await page.locator("#advanced-settings").evaluate((node) => {
-      node.open = true;
-    });
-    assert.equal(await page.locator("#model").inputValue(), "small");
     await page.locator("#language").selectOption("en");
+    await page.locator("#advanced-settings").click();
+    assert.equal(await page.locator("#model").inputValue(), "small");
     await page.locator("#detect-speakers").check();
     await page.locator("#speaker-count").fill("2");
+    await page.getByRole("button", { name: "Done", exact: true }).click();
+    await page
+      .locator("summary")
+      .filter({ hasText: /^Storage preferences$/ })
+      .click();
     await page.locator("#retain-audio").check();
     await page
       .locator("#file")
@@ -219,6 +222,10 @@ async function run() {
     await page.waitForFunction(
       () => document.querySelector("#audio-player").readyState >= 1,
     );
+    await page
+      .locator("summary")
+      .filter({ hasText: /^Playback and audio range$/ })
+      .click();
     await page.locator("#range-start").fill("1");
     await page.locator("#range-start").dispatchEvent("change");
     await page.locator("#range-end").fill("6");
@@ -283,12 +290,21 @@ async function run() {
     await segment.fill("Corrected hello. [verified]");
     await segment.press("Control+z");
     assert.equal(await segment.inputValue(), "Recording 1 hello.");
-    assert(await page.evaluate(() => Boolean(editor.data.segments[0].words)));
+    const undone = await downloadText(page, "save-json");
+    assert(JSON.parse(undone.text).segments[0].words);
     await segment.press("Control+Shift+z");
     assert.equal(await segment.inputValue(), "Corrected hello. [verified]");
     await page
+      .locator("summary")
+      .filter({ hasText: /^Speaker names$/ })
+      .click();
+    await page
       .getByRole("textbox", { name: "Rename Speaker 1", exact: true })
       .fill("Alex");
+    await page
+      .locator("summary")
+      .filter({ hasText: /^Find and replace$/ })
+      .click();
     await page.locator("#search-text").fill("hello");
     await page.locator("#search-next").click();
     assert.equal(await page.locator("#search-count").textContent(), "1 of 1");
@@ -301,10 +317,7 @@ async function run() {
       await page.locator(".segment.active").getAttribute("data-index"),
       "1",
     );
-    await page.evaluate(async () => {
-      editor.flushEdit();
-      await saveCurrent();
-    });
+    await page.locator("#copy").click();
     let plain = await page.locator("#transcript").inputValue();
     await page.locator("#copy").click();
     assert.equal(
@@ -389,6 +402,10 @@ async function run() {
     assert.equal(await page.locator("#transcript").inputValue(), plain);
     assert(await page.locator("#audio-player").isVisible());
     assert.match(await page.locator("#status").textContent(), /with audio/);
+    await page
+      .locator("summary")
+      .filter({ hasText: /^Storage preferences$/ })
+      .click();
     await page.locator("#retain-audio").uncheck();
     await page.waitForFunction(() =>
       [...document.querySelectorAll("#history-list li")].some(
@@ -426,9 +443,13 @@ async function run() {
     await page.waitForFunction(
       () => document.querySelectorAll("#history-list li").length === 1,
     );
+    await page
+      .locator("summary")
+      .filter({ hasText: /^Storage preferences$/ })
+      .click();
     await page.locator("#save-history").uncheck();
     const remaining = await page.evaluate(async () =>
-      (await library.list()).map((record) => record.id),
+      (await new LocalLibrary().list()).map((record) => record.id),
     );
 
     holdJobs = true;
@@ -454,7 +475,7 @@ async function run() {
     );
     assert.deepEqual(
       await page.evaluate(async () =>
-        (await library.list()).map((record) => record.id),
+        (await new LocalLibrary().list()).map((record) => record.id),
       ),
       remaining,
     );
@@ -471,12 +492,15 @@ async function run() {
     assert.equal(submissions.at(-1).filename, "waiting.wav");
     assert.deepEqual(
       await page.evaluate(async () =>
-        (await library.list()).map((record) => record.id),
+        (await new LocalLibrary().list()).map((record) => record.id),
       ),
       remaining,
       "Disabling autosave must keep existing records without saving new results",
     );
     await page.locator("#clear-history").click();
+    await page
+      .getByRole("button", { name: "Delete saved transcripts", exact: true })
+      .click();
     await page.waitForFunction(
       () => document.querySelectorAll("#history-list li").length === 0,
     );

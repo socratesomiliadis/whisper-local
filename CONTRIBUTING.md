@@ -34,6 +34,7 @@ needed. Install Node.js 22 or later, then run:
 
 ```sh
 npm ci
+npm run build
 npx playwright install chromium
 npm test
 npm run format:check
@@ -47,6 +48,17 @@ Checks cover edited exports, undo/redo, search and speaker assignment, library
 retention/deletion, preferences, queues/cancellation, media controls, and responsive
 layouts with deterministic API responses. Mocked browser recording and speaker
 fixtures do not establish real microphone or Community-1 inference quality.
+
+The frontend source lives in `frontend/`. React owns the layout and application
+state; the transcript editor and media engine keep their isolated DOM elements.
+Tailwind provides styling and shadcn/ui components use Base UI. Install additional
+components with `npx shadcn add <component>`.
+
+`npm run build` writes the bundled `app.js` and `style.css` to
+`src/whisper_local/static/`. Commit both built assets with frontend changes so
+the Python app works without Node.js installed. Before starting a Vite dev server,
+check for an existing instance. `npm run dev` proxies API requests to the local
+app on port 8765 and obtains its session token from the proxied home page.
 
 Real inference is opt-in and needs a valid speech recording and an already
 downloaded Base model and English alignment resources:

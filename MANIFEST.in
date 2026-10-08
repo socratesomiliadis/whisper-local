@@ -1,4 +1,6 @@
 include app.py Start.cmd Setup.ps1 requirements*.txt package*.json
+include components.json jsconfig.json vite.config.js index.html
+recursive-include frontend *.jsx *.js *.css
 include CONTRIBUTING.md SECURITY.md CHANGELOG.md .editorconfig .gitattributes .gitignore .prettierignore
 recursive-include docs *.json *.png
 recursive-include tests *.py *.cjs

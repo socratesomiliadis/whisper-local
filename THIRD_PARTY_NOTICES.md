@@ -1,8 +1,9 @@
 # Third-party notices
 
 The MIT license in this repository covers Whisper Local's application code.
-Dependencies and model weights retain their own licenses. They are downloaded
-during installation or first use and are not distributed in the source repository.
+Dependencies and model weights retain their own licenses. Model weights are
+downloaded during installation or first use. The packaged frontend bundles React,
+Base UI, shadcn/ui components, and their supporting libraries.
 
 | Project | License / attribution |
 | --- | --- |
@@ -18,6 +19,12 @@ during installation or first use and are not distributed in the source repositor
 | [Flask](https://github.com/pallets/flask) | BSD-3-Clause |
 | [Waitress](https://github.com/Pylons/waitress) | ZPL-2.1 |
 | [PyTorch](https://github.com/pytorch/pytorch) | BSD-3-Clause; bundled components may carry additional notices |
+| [React](https://github.com/facebook/react) | MIT; browser interface |
+| [Base UI](https://github.com/mui/base-ui) | MIT; accessible UI primitives |
+| [shadcn/ui](https://github.com/shadcn-ui/ui) | MIT; interface components |
+| [Tailwind CSS](https://github.com/tailwindlabs/tailwindcss) | MIT; interface styles |
+| [Lucide](https://github.com/lucide-icons/lucide) | ISC; SVG interface icons |
+| [class-variance-authority](https://github.com/joe-bell/cva), [cn](https://github.com/shadcn-ui/cn), [clsx](https://github.com/lukeed/clsx), [tailwind-merge](https://github.com/dcastil/tailwind-merge), [tw-animate-css](https://github.com/Wombosvideo/tw-animate-css) | MIT; frontend component utilities |
 
 Consult each project's notices for transitive dependencies and CUDA components.
 Language alignment weights retain their model-specific licenses; consult the

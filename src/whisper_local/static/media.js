@@ -432,13 +432,13 @@ window.AudioWorkspace = class AudioWorkspace {
     ctx.scale(ratio, ratio);
     ctx.clearRect(0, 0, width, height);
     if (this.selection && this.duration) {
-      ctx.fillStyle = "rgba(99, 102, 241, 0.18)";
+      ctx.fillStyle = "rgba(43, 99, 79, 0.14)";
       const x = (this.selection.start / this.duration) * width;
       const end =
         ((this.selection.end ?? this.duration) / this.duration) * width;
       ctx.fillRect(x, 0, Math.max(0, end - x), height);
     }
-    ctx.strokeStyle = "#818cf8";
+    ctx.strokeStyle = "#518b73";
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     if (this.peaks && this.peaks.length) {

@@ -85,8 +85,13 @@
       this.matches = [];
       this.matchIndex = -1;
       this.rows = [];
-      const listen = (id, event, callback) =>
-        el(id)?.addEventListener(event, callback);
+      this.listeners = [];
+      const listen = (id, event, callback) => {
+        const element = el(id);
+        if (!element) return;
+        element.addEventListener(event, callback);
+        this.listeners.push(() => element.removeEventListener(event, callback));
+      };
       listen("plain-view", "click", () => this.view(false));
       listen("timed-view", "click", () => this.view(true));
       listen("undo-edit", "click", () => this.undo());
@@ -653,6 +658,12 @@
         block: "nearest",
         behavior: "auto",
       });
+    }
+
+    dispose() {
+      clearTimeout(this.timer);
+      this.listeners.forEach((remove) => remove());
+      this.listeners = [];
     }
   }
 

@@ -241,7 +241,7 @@ Review the transcript and timestamps before using them.
 
 ## Development
 
-The application uses Flask/Waitress, a plain HTML/CSS/JavaScript frontend, and one
+The application uses Flask/Waitress, React with Tailwind CSS and shadcn/ui (Base UI), and one
 isolated inference process at a time. A parent monitor receives stage updates
 through a one-way pipe and can terminate the process on cancellation. Audio is
 decoded once to mono 16 kHz, clipped to the selected range, and passed to
@@ -252,6 +252,7 @@ ZIP exports locally without a server-side archive or additional runtime library.
 
 ```text
 src/whisper_local/   application, inference, speaker attribution, UI assets
+frontend/           React components, application state, Tailwind styles
 tests/              deterministic regression tests and opt-in inference test
 tests/browser/      browser checks with intercepted requests
 scripts/            distribution validation

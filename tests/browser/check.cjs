@@ -139,20 +139,20 @@ async function run() {
     const page = await context.newPage();
     page.on("pageerror", (error) => errors.push(error.message));
     await page.goto(origin);
-    await page.locator("#advanced-settings").evaluate((element) => {
-      element.open = true;
-    });
+    await page.locator("#advanced-settings").click();
     assert(!(await page.locator("body").textContent()).includes("\uFFFD"));
     assert(await page.locator("#transcribe").isDisabled());
     await page.locator("#fast-mode").click();
     assert.equal(await page.locator("#model").inputValue(), "tiny");
     assert.equal(await page.locator("#processing").inputValue(), "auto");
     assert(!(await page.locator("#detect-speakers").isChecked()));
+    await page.getByRole("button", { name: "Done", exact: true }).click();
     await page.locator("#file").setInputFiles(wavFixture());
     await page.locator("#transcribe").click();
     await page.locator("#results").waitFor({ state: "visible" });
     assert.equal(await page.locator("#transcript").inputValue(), fixture.text);
 
+    await page.locator("#advanced-settings").click();
     await page.locator("#model").selectOption("base");
     await page.locator("#detect-speakers").check();
     assert(await page.locator("#transcribe").isDisabled());
@@ -167,7 +167,12 @@ async function run() {
     await page.locator("#speaker-setup").waitFor({ state: "hidden" });
     assert.equal(await page.locator("#hf-token").inputValue(), "");
     await page.locator("#speaker-count").fill("2");
+    await page.getByRole("button", { name: "Done", exact: true }).click();
     await page.locator("#transcribe").click();
+    await page
+      .locator("summary")
+      .filter({ hasText: /^Speaker names$/ })
+      .click();
     await page.locator("#speaker-names").waitFor({ state: "visible" });
     assert.equal(await page.locator("#speaker-name-fields input").count(), 2);
     const rename = page.getByRole("textbox", {
