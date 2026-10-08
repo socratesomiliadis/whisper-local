@@ -1,2 +1,0 @@
-# Compatibility for tools that expect requirements.txt; pyproject.toml is authoritative.
--e .

@@ -4,7 +4,7 @@ Use Python 3.11 or 3.12. In a virtual environment, install the CPU engine first
 and then the editable development package:
 
 ```sh
-python -m pip install -r requirements-engine.txt --index-url https://download.pytorch.org/whl/cpu
+python -m pip install -r requirements/engine-cpu.txt --index-url https://download.pytorch.org/whl/cpu
 python -m pip install -e ".[dev]"
 python -m ruff check .
 python -m ruff format --check .
@@ -49,13 +49,14 @@ retention/deletion, preferences, queues/cancellation, media controls, and respon
 layouts with deterministic API responses. Mocked browser recording and speaker
 fixtures do not establish real microphone or Community-1 inference quality.
 
-The frontend source lives in `frontend/`. React owns the layout and application
+Run the commands above from the repository root. The frontend source and
+development entry page live in `frontend/`. React owns the layout and application
 state; the transcript editor and media engine keep their isolated DOM elements.
 Tailwind provides styling and shadcn/ui components use Base UI. Install additional
 components with `npx shadcn add <component>`.
 
-`npm run build` writes the bundled `app.js` and `style.css` to
-`src/whisper_local/static/`. Commit both built assets with frontend changes so
+`npm run build` writes the bundled JavaScript, CSS, and font assets to
+`src/whisper_local/static/`. Commit updated built assets with frontend changes so
 the Python app works without Node.js installed. Before starting a Vite dev server,
 check for an existing instance. `npm run dev` proxies API requests to the local
 app on port 8765 and obtains its session token from the proxied home page.
@@ -71,8 +72,11 @@ python -m pytest -m integration
 For API smoke checks, use Flask's test client in a Python script guarded by
 `if __name__ == "__main__":` so spawned workers import safely on Windows. Check
 that the requested model's `.ready` and `model.bin` files already exist when the
-test must run without downloads. The current worker creates a process per job;
-cached files persist, but model objects reload in memory. Generated WAV fixtures
+test must run without downloads. One isolated inference process is reused across
+jobs, caching the current Whisper configuration, alignment language, and speaker
+pipeline in memory. Changing settings can replace a cache; cancellation, a worker
+crash, or app shutdown discards the process. The next job starts a new worker and
+reloads its models from disk. Downloaded model files persist. Generated WAV fixtures
 can exercise decode, ranges, stage updates, normal completion, and cancellation
 without retaining real recordings. Native speaker inference still requires its
 separate gated download and must be verified explicitly.

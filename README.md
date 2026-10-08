@@ -56,12 +56,12 @@ Use Python **3.11 or 3.12**, with a virtual environment. For CPU inference:
 python -m venv .venv
 # Windows: .venv\Scripts\activate
 # Linux: source .venv/bin/activate
-python -m pip install -r requirements-engine.txt --index-url https://download.pytorch.org/whl/cpu
+python -m pip install -r requirements/engine-cpu.txt --index-url https://download.pytorch.org/whl/cpu
 python -m pip install -e .
 python -m whisper_local
 ```
 
-For a compatible NVIDIA GPU, install `requirements-engine-gpu.txt` instead with
+For a compatible NVIDIA GPU, install `requirements/engine-gpu.txt` instead with
 `--index-url https://download.pytorch.org/whl/cu128` before installing the app.
 Windows is the verified inference platform. CI checks Python and browser behavior
 on Windows and Linux without loading model weights. macOS/MPS acceleration has
@@ -268,13 +268,14 @@ ZIP exports locally without a server-side archive or additional runtime library.
 ```text
 src/whisper_local/   application, inference, speaker attribution, UI assets
 frontend/           React components, application state, Tailwind styles
+requirements/       CPU and NVIDIA GPU engine installation pins
 tests/              deterministic regression tests and opt-in inference test
 tests/browser/      browser checks with intercepted requests
 scripts/            distribution validation
-.github/workflows/  Windows/Linux checks, browser checks, package build
+.github/            contributor/security docs and CI workflows
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for installation and test commands.
+See [CONTRIBUTING.md](.github/CONTRIBUTING.md) for installation and test commands.
 The source is MIT licensed; weights and dependencies retain their licenses.
-See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and [SECURITY.md](SECURITY.md).
+See [THIRD_PARTY_NOTICES.md](docs/THIRD_PARTY_NOTICES.md) and [SECURITY.md](.github/SECURITY.md).
 This is an independent project, unaffiliated with OpenAI or pyannote.

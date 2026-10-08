@@ -4,17 +4,20 @@ import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath, URL } from "node:url";
 
 export default defineConfig({
+  root: fileURLToPath(new URL("./frontend", import.meta.url)),
   base: "./",
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: { "@": fileURLToPath(new URL("./frontend", import.meta.url)) },
   },
   build: {
-    outDir: "src/whisper_local/static",
+    outDir: fileURLToPath(
+      new URL("./src/whisper_local/static", import.meta.url),
+    ),
     emptyOutDir: false,
     cssCodeSplit: false,
     rollupOptions: {
-      input: "frontend/main.jsx",
+      input: fileURLToPath(new URL("./frontend/main.jsx", import.meta.url)),
       output: {
         entryFileNames: "app.js",
         chunkFileNames: "[name].js",

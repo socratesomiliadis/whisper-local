@@ -9,7 +9,7 @@ description = "Private WhisperX transcription with aligned timestamps and option
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
 license = "MIT"
-license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
+license-files = ["LICENSE", "docs/THIRD_PARTY_NOTICES.md"]
 authors = [{name = "Whisper Local contributors"}]
 keywords = ["whisper", "transcription", "diarization", "audio", "local"]
 classifiers = [

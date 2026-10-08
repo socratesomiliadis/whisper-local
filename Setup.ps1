@@ -19,11 +19,11 @@ if (-not $CpuOnly -and (Get-Command nvidia-smi -ErrorAction SilentlyContinue)) {
 }
 if ($taskUseGpu) {
     Write-Host 'Installing GPU acceleration for NVIDIA graphics. This download can be several GB.'
-    & $taskPython -m pip install -r (Join-Path $PSScriptRoot 'requirements-engine-gpu.txt') --index-url https://download.pytorch.org/whl/cu128 --disable-pip-version-check
+    & $taskPython -m pip install -r (Join-Path $PSScriptRoot 'requirements/engine-gpu.txt') --index-url https://download.pytorch.org/whl/cu128 --disable-pip-version-check
     if ($LASTEXITCODE -ne 0) { $taskUseGpu = $false; Write-Host 'GPU installation failed. Installing the CPU fallback.' }
 }
 if (-not $taskUseGpu) {
-    & $taskPython -m pip install -r (Join-Path $PSScriptRoot 'requirements-engine.txt') --index-url https://download.pytorch.org/whl/cpu --disable-pip-version-check
+    & $taskPython -m pip install -r (Join-Path $PSScriptRoot 'requirements/engine-cpu.txt') --index-url https://download.pytorch.org/whl/cpu --disable-pip-version-check
     if ($LASTEXITCODE -ne 0) { throw 'The CPU engine could not be installed.' }
 }
 & $taskPython -m pip install -e $PSScriptRoot --disable-pip-version-check

@@ -7,8 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "test": "npm run build && node tests/browser/editor-exports.cjs && node tests/browser/media.cjs && node tests/browser/check.cjs && node tests/browser/workspace.cjs",
-    "format": "prettier --write frontend src/whisper_local/static/editor.js src/whisper_local/static/media.js src/whisper_local/static/library.js src/whisper_local/templates tests/browser package.json components.json jsconfig.json vite.config.js index.html .github",
-    "format:check": "prettier --check frontend src/whisper_local/static/editor.js src/whisper_local/static/media.js src/whisper_local/static/library.js src/whisper_local/templates tests/browser package.json components.json jsconfig.json vite.config.js index.html .github"
+    "format": "prettier --write frontend src/whisper_local/static/editor.js src/whisper_local/static/media.js src/whisper_local/static/library.js src/whisper_local/templates tests/browser package.json components.json jsconfig.json vite.config.js .github",
+    "format:check": "prettier --check frontend src/whisper_local/static/editor.js src/whisper_local/static/media.js src/whisper_local/static/library.js src/whisper_local/templates tests/browser package.json components.json jsconfig.json vite.config.js .github"
   },
   "engines": {
     "node": ">=22"
