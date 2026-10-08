@@ -109,7 +109,8 @@ def status():
 
     return jsonify(
         ffmpeg=bool(shutil.which("ffmpeg")),
-        whisper=bool(importlib.util.find_spec("faster_whisper")),
+        whisper=bool(importlib.util.find_spec("whisperx")),
+        engine="whisperx",
         speakers=diarization.status(),
         acceleration=engine.capabilities(),
     )
@@ -246,11 +247,11 @@ def transcribe(
                 ),
             )
             segments = [
-                {"start": float(s["start"]), "end": float(s["end"]), "text": s["text"].strip()}
+                {**s, "start": float(s["start"]), "end": float(s["end"]), "text": s["text"].strip()}
                 for s in result["segments"]
                 if s["text"].strip()
             ]
-            speakers, warning = {}, None
+            speakers, warning = {}, result.get("warning")
             if detect_speakers and segments:
                 publish(state="diarizing", message="Detecting speakers on your computer…")
                 try:
@@ -263,13 +264,17 @@ def transcribe(
                     segments, speakers = diarization.assign_speakers(result["segments"], turns)
                 except Exception as exc:
                     # Preserve successful transcription when speaker detection fails.
-                    warning = (
+                    speaker_warning = (
                         "The transcript is ready, but speaker detection failed. "
                         + diarization.safe_error(exc)
                     )
+                    warning = " ".join(filter(None, [warning, speaker_warning]))
             for segment in segments:
                 segment["start"] = max(start_time, min(range_end, segment["start"] + start_time))
                 segment["end"] = max(segment["start"], min(range_end, segment["end"] + start_time))
+                for word in segment.get("words", []):
+                    word["start"] = max(start_time, min(range_end, word["start"] + start_time))
+                    word["end"] = max(word["start"], min(range_end, word["end"] + start_time))
             publish(
                 state="complete",
                 message="Transcript ready.",
@@ -281,6 +286,8 @@ def transcribe(
                 srt=subtitle_text(segments, speakers),
                 device=result["device"],
                 gpu_fallback=result["gpu_fallback"],
+                engine=result.get("engine", "whisperx"),
+                aligned=result.get("aligned", False),
                 elapsed=round(time.perf_counter() - started, 2),
                 quality=quality,
                 duration=duration,

@@ -19,7 +19,13 @@ const fixture = {
   text: "Stale original text",
   speakers: { A: "Alex", B: "Sam" },
   segments: [
-    { start: 0, end: 1.1, text: "Corrected hello.", speaker: "A" },
+    {
+      start: 0,
+      end: 1.1,
+      text: "Corrected hello.",
+      speaker: "A",
+      words: [{ start: 0, end: 1.1, word: " Corrected hello.", aligned: true }],
+    },
     { start: 1.1, end: 3, text: "Thank you.", speaker: "B" },
   ],
 };
@@ -41,6 +47,7 @@ const json = JSON.parse(Editor.export(fixture, "json"));
 assert.equal(json.text, Editor.text(fixture));
 assert.equal(json.range_start, 17);
 assert.equal(json.name, "meeting");
+assert.deepEqual(json.segments[0].words, fixture.segments[0].words);
 assert.match(json.srt, /Corrected hello/);
 assert.equal(
   JSON.stringify(fixture),

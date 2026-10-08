@@ -393,6 +393,7 @@
         text.addEventListener("input", () => {
           this.beginEdit();
           segment.text = text.value;
+          delete segment.words;
           this.updateDerived();
         });
         text.addEventListener("blur", () => this.flushEdit());
@@ -432,6 +433,7 @@
             }
             this.change(() => {
               segment[key] = value;
+              delete segment.words;
             });
           });
           label.append(input);
@@ -598,7 +600,9 @@
       const expression = new RegExp(escapePattern(query), "giu");
       this.change(() =>
         this.data.segments.forEach((segment) => {
-          segment.text = segment.text.replace(expression, () => replacement);
+          const updated = segment.text.replace(expression, () => replacement);
+          if (updated !== segment.text) delete segment.words;
+          segment.text = updated;
         }),
       );
       this.onStatus(

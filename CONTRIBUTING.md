@@ -49,7 +49,7 @@ layouts with deterministic API responses. Mocked browser recording and speaker
 fixtures do not establish real microphone or Community-1 inference quality.
 
 Real inference is opt-in and needs a valid speech recording and an already
-downloaded Base model:
+downloaded Base model and English alignment resources:
 
 ```sh
 # Set WHISPER_TEST_AUDIO to your local WAV/MP3 path, then:

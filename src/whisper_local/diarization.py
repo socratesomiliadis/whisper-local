@@ -196,8 +196,12 @@ def assign_speakers(segments: list[dict], turns: list[dict]) -> tuple[list[dict]
                 # Whisper words retain their original leading whitespace.
                 rows[-1]["text"] += text
                 rows[-1]["end"] = max(rows[-1]["end"], end)
+                if segment.get("words"):
+                    rows[-1].setdefault("words", []).append({**word, "speaker": speaker})
             else:
                 rows.append({"start": start, "end": end, "text": text, "speaker": speaker})
+                if segment.get("words"):
+                    rows[-1]["words"] = [{**word, "speaker": speaker}]
     for row in rows:
         row["text"] = row["text"].strip()
     return rows, names

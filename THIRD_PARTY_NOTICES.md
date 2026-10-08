@@ -8,6 +8,10 @@ during installation or first use and are not distributed in the source repositor
 | --- | --- |
 | [OpenAI Whisper](https://github.com/openai/whisper) | MIT; original model architecture and weights |
 | [faster-whisper](https://github.com/SYSTRAN/faster-whisper) | MIT; optimized Whisper inference |
+| [WhisperX](https://github.com/m-bain/whisperX) | BSD-2-Clause; batched transcription and forced alignment |
+| [Silero VAD](https://github.com/snakers4/silero-vad) | MIT; bundled speech detection weights |
+| [Transformers](https://github.com/huggingface/transformers) | Apache-2.0; language alignment model loading |
+| [TorchVision](https://github.com/pytorch/vision) | BSD-3-Clause; WhisperX dependency |
 | [CTranslate2](https://github.com/OpenNMT/CTranslate2) | MIT; inference runtime |
 | [pyannote.audio](https://github.com/pyannote/pyannote-audio) | MIT; speaker diarization library |
 | [pyannote Community-1](https://huggingface.co/pyannote/speaker-diarization-community-1) | CC BY 4.0; speaker model by pyannote. Download requires acceptance of its access conditions. |
@@ -16,5 +20,8 @@ during installation or first use and are not distributed in the source repositor
 | [PyTorch](https://github.com/pytorch/pytorch) | BSD-3-Clause; bundled components may carry additional notices |
 
 Consult each project's notices for transitive dependencies and CUDA components.
+Language alignment weights retain their model-specific licenses; consult the
+model cards linked by WhisperX's default alignment model registry. English uses
+torchaudio's Wav2Vec2 ASR Base 960h model.
 Whisper Local is an independent project and is not affiliated with or endorsed
 by OpenAI, Hugging Face, or pyannote.

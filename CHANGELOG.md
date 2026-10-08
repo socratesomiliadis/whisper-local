@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- WhisperX batched transcription and cached language-specific word alignment,
+  with alignment progress, CPU recovery, and transcript preservation on alignment failure.
+- Word timestamps retained through speaker assignment, selected ranges, and JSON
+  exports; text/timing edits clear stale word metadata. Bundled Silero speech detection.
 - Editable transcript segments, timing corrections, manual speaker assignment,
   search/replace, and undo/redo, shared across copying, saving, and exports.
 - Browser-local IndexedDB transcript autosave, individual/all-record deletion,

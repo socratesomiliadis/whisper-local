@@ -1,7 +1,7 @@
 # Whisper Local
 
 A small browser app for private audio transcription using OpenAI's open-source
-Whisper models. Upload or record audio, transcribe on your computer, and export text
+Whisper models through WhisperX, with word alignment. Upload or record audio, transcribe on your computer, and export text
 or subtitles. No OpenAI account, API key, or transcription fees.
 
 ![Whisper Local with an example speaker-labeled transcript](docs/screenshot.png)
@@ -15,7 +15,8 @@ _The screenshot uses a deterministic two-speaker fixture to demonstrate the UI._
 - Synchronized transcript highlighting, optional follow scrolling, playback speed,
   skip controls, and clickable timestamps.
 - Waveform selection or manual start/end times for transcribing part of a recording.
-- Multilingual Tiny, Base, and Small models through faster-whisper.
+- Multilingual Tiny, Base, and Small models through WhisperX's batched faster-whisper engine.
+- Language-specific word alignment for more precise timestamps and speaker assignment.
 - Automatic NVIDIA GPU acceleration with an INT8 CPU fallback.
 - Fast, Balanced, and Accurate presets, with advanced model and CPU settings.
 - Editable segments, speaker names and assignments, timing corrections, search
@@ -77,7 +78,7 @@ with an explanation before opening the browser.
 
 ## Speaker detection
 
-Whisper supplies text and timestamps; **pyannote Community-1** supplies speaker
+WhisperX supplies text and aligned timestamps; **pyannote Community-1** supplies speaker
 turns. Enable **Detect speakers** in the app and follow its one-time setup:
 
 1. Sign in to Hugging Face and accept the access conditions for
@@ -107,7 +108,18 @@ as verified by those tests.
 | Base  | 145 MB               | Default balance                     |
 | Small | 460 MB               | More accuracy, more processing time |
 
-Missing models download on first use, then work offline. The quality presets
+Missing models download on first use, then work offline. WhisperX also downloads
+an alignment model for each supported language and sentence-splitting resources.
+These additional downloads can be hundreds of MB or more (English is about 360 MB).
+Cached alignment works offline without a Hugging Face token. Unsupported languages
+or alignment failures keep the transcript with original segment times and a warning.
+Word times are retained in JSON exports; editing segment text or times discards
+that segment's original word times so exported metadata stays consistent.
+
+WhisperX improves timing through forced alignment and batches speech chunks; it
+uses the same Whisper models for recognition. This does not guarantee better
+word accuracy or faster end-to-end processing, particularly on short CPU jobs.
+The quality presets
 choose a model and a decoding beam size:
 
 | Preset   | Model | Beam size |
@@ -124,7 +136,7 @@ failure retries on CPU and disables GPU processing for the rest of that launch.
 Each recording runs in an isolated process so **Cancel** can stop native CPU/GPU
 work, including speaker detection. Model objects reload into memory for each
 recording; downloaded model files stay cached. Progress describes the current
-stage, such as model download, loading, transcription, or speaker detection.
+stage, such as model download, loading, transcription, word alignment, or speaker detection.
 Percentages describe that stage or speaker-processing step, rather than an
 overall completion estimate or ETA.
 
@@ -141,7 +153,7 @@ seconds of synthesized English speech and already loaded models:
 The historical faster-whisper runs used beam size 1. These are two-run warm
 medians with no speaker detection. They exclude download, loading, decoding,
 and upload time;
-the new presets and isolated workers have different end-to-end timings. They
+the WhisperX pipeline, alignment, new presets, and isolated workers have different end-to-end timings. They
 are not a general performance guarantee.
 See [benchmark data](docs/speed-benchmark.json).
 
@@ -223,8 +235,9 @@ weights, recordings, and credentials are excluded from Git.
 - **Invalid recording:** try a valid WAV or MP3. Changing a filename extension does
   not convert an audio file.
 
-Whisper can mishear names, hallucinate words on silence, and produce approximate
-timestamps. Review the transcript before using it.
+Whisper can mishear names and hallucinate words on silence. Alignment can also
+estimate or miss word times; JSON marks estimated times with `aligned: false`.
+Review the transcript and timestamps before using them.
 
 ## Development
 

@@ -14,9 +14,12 @@ def test_real_cached_base_model():
     directory = engine.MODELS_DIR / "faster-whisper" / "base"
     if not (directory / ".ready").is_file() or not (directory / "model.bin").is_file():
         pytest.skip("Download Base through the app before running this test")
+    if not (engine.MODELS_DIR / "alignment" / "en" / ".ready").is_file():
+        pytest.skip("Run English alignment through the app before running this test")
     result = engine.transcribe(
         engine.decode(path), name="base", language="en", word_timestamps=True
     )
     assert result["text"].strip()
     assert result["segments"] and result["segments"][0]["words"]
     assert result["device"] in {"cpu", "cuda"}
+    assert result["engine"] == "whisperx" and result["aligned"]

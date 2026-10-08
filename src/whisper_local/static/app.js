@@ -461,6 +461,7 @@ function progress(data) {
     downloading: "Downloading model",
     loading: "Loading model",
     transcribing: "Transcribing",
+    aligning: "Aligning word timestamps",
     diarizing: "Detecting speakers",
     cancelling: "Cancelling",
   };

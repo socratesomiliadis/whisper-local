@@ -51,8 +51,27 @@ function completed(index) {
     text: `Recording ${index} hello. Thank you.`,
     speakers: { A: "Speaker 1", B: "Speaker 2" },
     segments: [
-      { start: 1, end: 2.5, text: `Recording ${index} hello.`, speaker: "A" },
-      { start: 2.5, end: 6, text: "Thank you.", speaker: "B" },
+      {
+        start: 1,
+        end: 2.5,
+        text: `Recording ${index} hello.`,
+        speaker: "A",
+        words: [
+          {
+            start: 1,
+            end: 2.5,
+            word: ` Recording ${index} hello.`,
+            aligned: true,
+          },
+        ],
+      },
+      {
+        start: 2.5,
+        end: 6,
+        text: "Thank you.",
+        speaker: "B",
+        words: [{ start: 2.5, end: 6, word: " Thank you.", aligned: true }],
+      },
     ],
     range_start: 1,
     range_end: 6,
@@ -264,6 +283,7 @@ async function run() {
     await segment.fill("Corrected hello. [verified]");
     await segment.press("Control+z");
     assert.equal(await segment.inputValue(), "Recording 1 hello.");
+    assert(await page.evaluate(() => Boolean(editor.data.segments[0].words)));
     await segment.press("Control+Shift+z");
     assert.equal(await segment.inputValue(), "Corrected hello. [verified]");
     await page
@@ -300,8 +320,20 @@ async function run() {
       assert.match(downloaded.text, /Corrected hello\. \[verified\]/);
       assert(!downloaded.text.includes("Recording 1 hello."));
       if (format === "txt") assert.equal(downloaded.text.trim(), plain);
-      if (format === "json")
-        assert.equal(JSON.parse(downloaded.text).text, plain);
+      if (format === "json") {
+        const result = JSON.parse(downloaded.text);
+        assert.equal(result.text, plain);
+        assert.equal(
+          result.segments[0].words,
+          undefined,
+          "Edited text must clear its original word alignment",
+        );
+        assert.deepEqual(
+          result.segments[1].words,
+          completed(1).segments[1].words,
+          "Unedited segments must retain word alignment",
+        );
+      }
       if (format === "vtt") assert(downloaded.text.startsWith("WEBVTT\n"));
     }
     const zipReady = page.waitForEvent("download");

@@ -134,6 +134,7 @@ def test_transcription_retains_text_when_speakers_fail(monkeypatch, tmp_path):
             "segments": [{"start": 0, "end": 1, "text": "Hello."}],
             "device": "cpu",
             "gpu_fallback": False,
+            "warning": "Alignment model unavailable.",
         },
     )
     monkeypatch.setattr(diarization, "detect", Mock(side_effect=RuntimeError("failed hf_SECRET")))
@@ -142,6 +143,7 @@ def test_transcription_retains_text_when_speakers_fail(monkeypatch, tmp_path):
     assert job["state"] == "complete"
     assert job["text"] == "Hello."
     assert job["warning"] and "hf_SECRET" not in job["warning"]
+    assert "Alignment model unavailable." in job["warning"]
     assert not job["speakers"]
     assert not folder.exists()
 
@@ -180,7 +182,8 @@ def test_job_pruning(upload, monkeypatch, tmp_path):
     assert "expired" not in api.jobs and "0" not in api.jobs
 
 
-def test_range_clips_audio_and_offsets_speaker_segments(monkeypatch, tmp_path):
+@pytest.mark.parametrize("detect_speakers", [True, False])
+def test_range_clips_audio_and_offsets_speaker_segments(monkeypatch, tmp_path, detect_speakers):
     folder = tmp_path / "upload"
     folder.mkdir()
     api.jobs["test"] = {"state": "loading"}
@@ -191,7 +194,16 @@ def test_range_clips_audio_and_offsets_speaker_segments(monkeypatch, tmp_path):
             "language": "en",
             "device": "cpu",
             "gpu_fallback": False,
-            "segments": [{"start": 0.25, "end": 1.5, "text": "Hello."}],
+            "engine": "whisperx",
+            "aligned": True,
+            "segments": [
+                {
+                    "start": 0.25,
+                    "end": 1.5,
+                    "text": "Hello.",
+                    "words": [{"start": 0.25, "end": 1.5, "word": " Hello.", "aligned": True}],
+                }
+            ],
         }
     )
     monkeypatch.setattr(engine, "transcribe", inference)
@@ -208,7 +220,7 @@ def test_range_clips_audio_and_offsets_speaker_segments(monkeypatch, tmp_path):
         "clip.wav",
         "base",
         "",
-        True,
+        detect_speakers,
         quality="accurate",
         start_time=3,
         end_time=5,
@@ -219,7 +231,12 @@ def test_range_clips_audio_and_offsets_speaker_segments(monkeypatch, tmp_path):
     assert inference.call_args.kwargs["quality"] == "accurate"
     assert job["duration"] == 2 and job["original_duration"] == 10
     assert job["range"] == {"start": 3, "end": 5}
-    assert job["segments"][0] == {"start": 3.25, "end": 4.5, "text": "Hello.", "speaker": "A"}
+    row = job["segments"][0]
+    assert row["start"] == 3.25 and row["end"] == 4.5 and row["text"] == "Hello."
+    assert row.get("speaker") == ("A" if detect_speakers else None)
+    assert row["words"][0]["start"] == 3.25 and row["words"][0]["end"] == 4.5
+    assert row["words"][0]["aligned"]
+    assert job["engine"] == "whisperx" and job["aligned"]
     assert "00:00:03,250" in job["srt"]
     assert job["progress"] == 1 and job["stage"] == "complete"
 

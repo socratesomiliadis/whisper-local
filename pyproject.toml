@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "whisper-local"
 version = "0.1.0"
-description = "Private audio transcription with local Whisper inference and optional speaker labels."
+description = "Private WhisperX transcription with aligned timestamps and optional speaker labels."
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
 license = "MIT"
@@ -23,12 +23,16 @@ dependencies = [
     "Flask>=3.1,<4",
     "waitress>=3.0,<4",
     "platformdirs>=4,<5",
+    "whisperx==3.8.6",
+    "transformers==4.57.6",
+    "silero-vad==6.2.0",
     "faster-whisper==1.2.1",
     "ctranslate2==4.8.2",
     "pyannote.audio==4.0.7",
     "torchcodec==0.7.0",
     "torch==2.8.0",
     "torchaudio==2.8.0",
+    "torchvision==0.23.0",
 ]
 
 [project.optional-dependencies]
