@@ -6,7 +6,7 @@ recursive-include docs *.json *.png
 recursive-include tests *.py *.cjs
 recursive-include scripts *.py
 recursive-include .github *.yml *.md
-recursive-include src/whisper_local/static *.js *.css *.svg
+recursive-include src/whisper_local/static *.js *.css *.svg *.woff2 *.txt
 recursive-include src/whisper_local/templates *.html
 prune .runtime
 prune .models

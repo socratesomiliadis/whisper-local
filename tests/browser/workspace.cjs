@@ -119,7 +119,9 @@ async function run() {
             ? "text/javascript"
             : filename.endsWith(".css")
               ? "text/css"
-              : "image/svg+xml",
+              : filename.endsWith(".woff2")
+                ? "font/woff2"
+                : "image/svg+xml",
           body: fs.readFileSync(path.join(assets, filename)),
         });
       }
@@ -204,10 +206,14 @@ async function run() {
     await page.waitForFunction(() =>
       document.querySelector("#acceleration").textContent.includes("CPU"),
     );
-    await page.locator("#quality").selectOption("accurate");
-    await page.locator("#language").selectOption("en");
+    await page.locator("#quality").click();
+    await page
+      .getByRole("option", { name: "Accurate · best results", exact: true })
+      .click();
+    await page.locator("#language").click();
+    await page.getByRole("option", { name: "English", exact: true }).click();
     await page.locator("#advanced-settings").click();
-    assert.equal(await page.locator("#model").inputValue(), "small");
+    assert.match(await page.locator("#model").textContent(), /Small/);
     await page.locator("#detect-speakers").check();
     await page.locator("#speaker-count").fill("2");
     await page.getByRole("button", { name: "Done", exact: true }).click();
@@ -226,6 +232,14 @@ async function run() {
       .locator("summary")
       .filter({ hasText: /^Playback and audio range$/ })
       .click();
+    await page.locator("#playback-speed").click();
+    await page.getByRole("option", { name: "1.5×", exact: true }).click();
+    assert.equal(
+      await page
+        .locator("#audio-player")
+        .evaluate((audio) => audio.playbackRate),
+      1.5,
+    );
     await page.locator("#range-start").fill("1");
     await page.locator("#range-start").dispatchEvent("change");
     await page.locator("#range-end").fill("6");
@@ -391,7 +405,7 @@ async function run() {
     await page.waitForFunction(
       () => document.querySelectorAll("#history-list li").length === 2,
     );
-    assert.equal(await page.locator("#quality").inputValue(), "accurate");
+    assert.match(await page.locator("#quality").textContent(), /Accurate/);
     await page
       .locator("#history-list .item-open")
       .filter({ has: page.locator("strong", { hasText: /^first$/ }) })

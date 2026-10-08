@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileText, Trash2 } from "lucide-react";
+import { FileText, Trash2, FolderOpen } from "lucide-react";
 import {
     Dialog,
     DialogContent,
@@ -15,11 +15,18 @@ export function LibraryPanel({ workspace: w }) {
     const [confirm, setConfirm] = useState(false);
     return (
         <section
-            className="mt-6 rounded-2xl border bg-card p-5 sm:p-6"
+            className="mt-5 rounded-3xl bg-card p-5 sm:p-6"
             aria-labelledby="history-heading"
         >
             <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 id="history-heading" className="text-base font-semibold">
+                <h2
+                    id="history-heading"
+                    className="flex items-center gap-2.5 text-base font-medium tracking-tight"
+                >
+                    <FolderOpen
+                        aria-hidden="true"
+                        className="size-4 text-muted-foreground"
+                    />
                     Saved transcripts
                 </h2>
                 <div className="flex items-center gap-2">
@@ -59,17 +66,17 @@ export function LibraryPanel({ workspace: w }) {
             <p
                 id="history-empty"
                 hidden={!!w.records.length}
-                className="py-4 text-sm text-muted-foreground"
+                className="mt-2 rounded-2xl bg-background px-4 py-4 text-sm leading-relaxed text-muted-foreground"
             >
                 {w.prefs["save-history"]
                     ? "No saved transcripts yet. Completed transcripts save here automatically."
                     : "No saved transcripts. Automatic saving is off."}
             </p>
-            <ul id="history-list" className="divide-y">
+            <ul id="history-list" className="space-y-2">
                 {w.records.map((record) => (
                     <li
                         key={record.id}
-                        className="library-item flex min-w-0 items-center gap-3 py-3"
+                        className="library-item flex min-w-0 items-center gap-3 rounded-2xl bg-background px-3 py-3"
                     >
                         <FileText
                             aria-hidden="true"

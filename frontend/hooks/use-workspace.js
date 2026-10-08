@@ -96,6 +96,7 @@ const initial = () => ({
   messageType: "",
   historyMessage: "",
   copied: false,
+  speakerSelects: [],
 });
 const el = (id) => document.getElementById(id);
 const extensions = new Set(
@@ -175,6 +176,7 @@ function createWorkspace(start, update) {
     return body;
   };
   const editor = new window.TranscriptEditor({
+    onSpeakerSelects: (speakerSelects) => patch({ speakerSelects }),
     onChange(data) {
       if (selected?.result) selected.result = data;
       if (record) {
@@ -366,6 +368,8 @@ function createWorkspace(start, update) {
       }
     }
     patch({ prefs });
+    if (key === "playback-speed")
+      el("audio-player").playbackRate = Number(value);
     try {
       localStorage.setItem("whisper-preferences", JSON.stringify(prefs));
     } catch {

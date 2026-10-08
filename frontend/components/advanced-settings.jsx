@@ -36,7 +36,7 @@ export function AdvancedSettings({ workspace: w }) {
                 render={
                     <Action
                         variant="ghost"
-                        className="mt-4 w-full justify-start border-y rounded-none px-0"
+                        className="mt-4 w-full justify-start rounded-xl bg-background px-3.5 hover:bg-muted"
                     />
                 }
             >
@@ -93,7 +93,7 @@ export function AdvancedSettings({ workspace: w }) {
                             <Zap />
                             Use fast mode
                         </Action>
-                        <div className="border-t pt-3">
+                        <div className="rounded-xl bg-background p-3">
                             <PrefCheck
                                 workspace={w}
                                 id="detect-speakers"

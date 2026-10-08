@@ -70,10 +70,12 @@
       onChange = () => {},
       onSeek = () => {},
       onStatus = () => {},
+      onSpeakerSelects = () => {},
     } = {}) {
       this.onChange = onChange;
       this.onSeek = onSeek;
       this.onStatus = onStatus;
+      this.onSpeakerSelects = onSpeakerSelects;
       this.data = null;
       this.past = [];
       this.future = [];
@@ -444,25 +446,20 @@
           label.append(input);
           controls.append(label);
         }
-        const label = document.createElement("label");
-        label.textContent = "Speaker";
-        const select = document.createElement("select");
+        const label = document.createElement("div");
+        label.className = "segment-speaker-field";
+        const caption = document.createElement("span");
+        caption.textContent = "Speaker";
+        const select = document.createElement("div");
         select.className = "segment-speaker";
-        select.dataset.editorFocus = `speaker-${index}`;
-        select.setAttribute("aria-label", `Speaker for segment ${index + 1}`);
-        this.fillSpeakerSelect(select, segment.speaker);
-        select.addEventListener("change", () =>
-          this.change(() => {
-            segment.speaker = select.value || null;
-          }),
-        );
-        label.append(select);
+        label.append(caption, select);
         controls.append(label);
         body.append(speakerLabel, text, controls);
         row.append(time, body);
         this.rows.push({ row, text, time, speakerLabel, select });
         el("segments").append(row);
       }
+      this.publishSpeakerSelects();
       this.updateDerived();
       this.updateUndo();
       this.setPlaybackTime(this.playbackTime);
@@ -477,18 +474,28 @@
       }
     }
 
-    fillSpeakerSelect(select, selected) {
-      select.replaceChildren();
-      const add = (id, name) => {
-        const option = document.createElement("option");
-        option.value = id;
-        option.textContent = name;
-        select.append(option);
-      };
-      add("", "Unassigned");
-      for (const [id, name] of Object.entries(this.data.speakers))
-        add(id, name);
-      select.value = selected || "";
+    publishSpeakerSelects() {
+      const options = [
+        ["", "Unassigned"],
+        ...Object.entries(this.data.speakers),
+      ];
+      this.onSpeakerSelects(
+        this.rows.map(({ select }, index) => ({
+          container: select,
+          index,
+          value: this.data.segments[index].speaker || "",
+          options,
+          autoFocus: this.speakerFocusIndex === index,
+          onValueChange: (value) => {
+            if (value === (this.data.segments[index].speaker || "")) return;
+            this.speakerFocusIndex = index;
+            this.change(() => {
+              this.data.segments[index].speaker = value || null;
+            });
+            this.speakerFocusIndex = null;
+          },
+        })),
+      );
     }
 
     renderSpeakers() {
@@ -510,10 +517,10 @@
           for (let index = 0; index < this.rows.length; index++) {
             const row = this.rows[index];
             const segment = this.data.segments[index];
-            this.fillSpeakerSelect(row.select, segment.speaker);
             row.speakerLabel.textContent =
               this.data.speakers[segment.speaker] || "Unassigned";
           }
+          this.publishSpeakerSelects();
           this.updateDerived();
         });
         input.addEventListener("blur", () => this.flushEdit());

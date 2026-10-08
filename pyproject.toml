@@ -45,7 +45,7 @@ whisper-local = "whisper_local.app:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-whisper_local = ["templates/*.html", "static/*.js", "static/*.css", "static/*.svg"]
+whisper_local = ["templates/*.html", "static/*.js", "static/*.css", "static/*.svg", "static/*.woff2", "static/*.txt"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

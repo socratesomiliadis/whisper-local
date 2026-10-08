@@ -15,13 +15,15 @@ import {
 } from "lucide-react";
 import { AdvancedSettings } from "./advanced-settings";
 import { Input } from "@/components/ui/input";
-import {
-    NativeSelect,
-    NativeSelectOption,
-} from "@/components/ui/native-select";
 import { cn } from "@/lib/utils";
 import { stages } from "@/hooks/use-workspace";
-import { Action, Field, PrefSelect, Disclosure } from "./workspace-controls";
+import {
+    Action,
+    Field,
+    PrefSelect,
+    Disclosure,
+    WorkspaceSelect,
+} from "./workspace-controls";
 
 const audioTypes =
     ".mp3,.wav,.m4a,.flac,.ogg,.opus,.webm,.aac,.mp4,.wma,.aiff,.aif";
@@ -59,12 +61,23 @@ export function AudioPanel({ workspace: w }) {
         (w.prefs["detect-speakers"] && !w.speakers.ready);
     return (
         <section
-            className="min-w-0 rounded-2xl border bg-card p-5 sm:p-6"
+            className="min-w-0 rounded-3xl bg-card p-5 sm:p-6"
             aria-labelledby="audio-heading"
         >
-            <h2 id="audio-heading" className="mb-5 text-base font-semibold">
-                Audio
-            </h2>
+            <div className="mb-5 flex items-center gap-2.5">
+                <span
+                    aria-hidden="true"
+                    className="flex size-6 items-center justify-center rounded-full bg-muted text-[11px] font-medium text-muted-foreground"
+                >
+                    01
+                </span>
+                <h2
+                    id="audio-heading"
+                    className="text-base font-medium tracking-tight"
+                >
+                    Your audio
+                </h2>
+            </div>
             <input
                 id="file"
                 type="file"
@@ -84,8 +97,8 @@ export function AudioPanel({ workspace: w }) {
                 aria-disabled={locked}
                 disabled={locked}
                 className={cn(
-                    "flex w-full flex-col items-center gap-2 rounded-xl border border-dashed bg-muted/30 px-4 py-7 text-center transition-colors hover:border-primary/50 hover:bg-accent/60 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring disabled:cursor-default disabled:opacity-50",
-                    dragging && "border-primary bg-accent",
+                    "group/upload flex w-full flex-col items-center gap-2 rounded-2xl bg-background px-4 py-7 text-center transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring disabled:cursor-default disabled:opacity-50",
+                    dragging && "bg-accent ring-2 ring-ring/40",
                 )}
                 onClick={() => document.getElementById("file").click()}
                 onDragOver={(event) => {
@@ -99,7 +112,7 @@ export function AudioPanel({ workspace: w }) {
                     w.run("chooseFiles", Array.from(event.dataTransfer.files));
                 }}
             >
-                <span className="mb-1 flex size-11 items-center justify-center rounded-xl border bg-background text-primary">
+                <span className="mb-2 flex size-11 -rotate-6 items-center justify-center rounded-xl bg-[#fff0c2] text-[#8c6b26] ring-[3px] ring-card transition-transform group-hover/upload:rotate-0">
                     {w.file ? (
                         <FileAudio aria-hidden="true" className="size-5" />
                     ) : (
@@ -117,7 +130,7 @@ export function AudioPanel({ workspace: w }) {
                 </strong>
                 <span
                     id="file-detail"
-                    className="text-sm text-muted-foreground"
+                    className="text-xs text-muted-foreground"
                 >
                     {w.file
                         ? `${(w.file.size / 1024 / 1024).toFixed(1)} MB · Click to add more`
@@ -168,7 +181,7 @@ export function AudioPanel({ workspace: w }) {
             <div
                 id="waveform-panel"
                 hidden
-                className="mt-4 rounded-xl border bg-muted/20 p-3"
+                className="mt-4 rounded-xl bg-background p-3"
             >
                 <canvas
                     id="waveform"
@@ -218,29 +231,23 @@ export function AudioPanel({ workspace: w }) {
                             10s
                             <RotateCw />
                         </Action>
-                        <NativeSelect
+                        <WorkspaceSelect
                             id="playback-speed"
                             aria-label="Playback speed"
                             value={w.prefs["playback-speed"]}
-                            onChange={(event) =>
-                                w.run(
-                                    "setPref",
-                                    "playback-speed",
-                                    event.target.value,
-                                )
+                            className="h-9 rounded-full px-3"
+                            onValueChange={(value) =>
+                                w.run("setPref", "playback-speed", value)
                             }
-                        >
-                            {["0.5", "0.75", "1", "1.25", "1.5", "2"].map(
-                                (value) => (
-                                    <NativeSelectOption
-                                        value={value}
-                                        key={value}
-                                    >
-                                        {value}×
-                                    </NativeSelectOption>
-                                ),
-                            )}
-                        </NativeSelect>
+                            options={[
+                                "0.5",
+                                "0.75",
+                                "1",
+                                "1.25",
+                                "1.5",
+                                "2",
+                            ].map((value) => [value, `${value}×`])}
+                        />
                         <Action
                             id="range-reset"
                             variant="ghost"
@@ -276,7 +283,7 @@ export function AudioPanel({ workspace: w }) {
             <Action
                 id="transcribe"
                 variant="default"
-                className="mt-5 h-11 w-full rounded-xl"
+                className="mt-5 h-12 w-full rounded-full px-5 disabled:opacity-35"
                 disabled={disabled}
                 onClick={() => w.run("transcribe")}
             >
@@ -348,7 +355,7 @@ export function AudioPanel({ workspace: w }) {
             <section
                 id="queue-panel"
                 hidden={!w.queue.length}
-                className="mt-5 border-t pt-4"
+                className="mt-5 rounded-2xl bg-background p-3"
                 aria-labelledby="queue-heading"
             >
                 <div className="mb-2 flex items-center justify-between">

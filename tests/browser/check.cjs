@@ -91,7 +91,9 @@ async function run() {
             ? "text/css"
             : name.endsWith(".js")
               ? "text/javascript"
-              : "image/svg+xml",
+              : name.endsWith(".woff2")
+                ? "font/woff2"
+                : "image/svg+xml",
           body: fs.readFileSync(path.join(assets, name)),
         });
       }
@@ -143,8 +145,8 @@ async function run() {
     assert(!(await page.locator("body").textContent()).includes("\uFFFD"));
     assert(await page.locator("#transcribe").isDisabled());
     await page.locator("#fast-mode").click();
-    assert.equal(await page.locator("#model").inputValue(), "tiny");
-    assert.equal(await page.locator("#processing").inputValue(), "auto");
+    assert.match(await page.locator("#model").textContent(), /Tiny/);
+    assert.match(await page.locator("#processing").textContent(), /Automatic/);
     assert(!(await page.locator("#detect-speakers").isChecked()));
     await page.getByRole("button", { name: "Done", exact: true }).click();
     await page.locator("#file").setInputFiles(wavFixture());
@@ -153,7 +155,10 @@ async function run() {
     assert.equal(await page.locator("#transcript").inputValue(), fixture.text);
 
     await page.locator("#advanced-settings").click();
-    await page.locator("#model").selectOption("base");
+    await page.locator("#model").click();
+    await page
+      .getByRole("option", { name: "Base · balanced", exact: true })
+      .click();
     await page.locator("#detect-speakers").check();
     assert(await page.locator("#transcribe").isDisabled());
     await page.locator("#hf-token").fill("invalid");
@@ -187,6 +192,19 @@ async function run() {
     );
     await rename.fill("Alex");
     await page.locator("#timed-view").click();
+    const speakerSelect = page.getByRole("combobox", {
+      name: "Speaker for segment 1",
+      exact: true,
+    });
+    await speakerSelect.click();
+    await page.getByRole("option", { name: "Speaker 2", exact: true }).click();
+    assert.equal(
+      await page.locator(".speaker-label").first().textContent(),
+      "Speaker 2",
+    );
+    await page.locator("#undo-edit").click();
+    assert.match(await speakerSelect.textContent(), /Alex/);
+    assert.equal(await page.locator("select").count(), 0);
     assert.equal(
       await page.locator(".speaker-label").first().textContent(),
       "Alex",

@@ -1,5 +1,6 @@
 import { createRoot } from "react-dom/client";
 import App from "./App";
+import "@fontsource-variable/geist";
 import "./styles.css";
 
 // The development page obtains the session token from the existing local app.

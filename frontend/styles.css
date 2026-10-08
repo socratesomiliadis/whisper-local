@@ -6,8 +6,7 @@
 
 @theme inline {
   --font-heading: var(--font-sans);
-  --font-sans:
-    "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-sans: "Geist Variable", "Geist", system-ui, sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -49,30 +48,30 @@
 }
 
 :root {
-  --background: oklch(0.976 0.004 85);
-  --foreground: oklch(0.25 0.012 165);
+  --background: #f2f2f1;
+  --foreground: #202020;
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.39 0.055 165);
+  --primary: #262626;
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
+  --secondary: #eaeae8;
   --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.95 0.017 165);
+  --muted: #ededea;
+  --muted-foreground: #737373;
+  --accent: #e3e3e0;
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.55 0.055 165);
+  --border: #e6e6e5;
+  --input: #e1e1e0;
+  --ring: #858585;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
+  --radius: 0.875rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -126,6 +125,7 @@
   }
   html {
     @apply font-sans;
+    -webkit-font-smoothing: antialiased;
   }
   [hidden] {
     display: none !important;
@@ -139,13 +139,13 @@
 /* These elements are owned by the transcript editor, outside React's tree. */
 @layer components {
   .segment {
-    @apply grid grid-cols-[3rem_minmax(0,1fr)] gap-2 rounded-xl border bg-background/60 p-3;
+    @apply grid grid-cols-[3rem_minmax(0,1fr)] gap-2 rounded-2xl bg-background p-3;
   }
   .segment.active {
-    @apply border-primary/40 bg-accent/60;
+    @apply bg-accent;
   }
   .segment.search-match {
-    @apply border-amber-300;
+    @apply bg-amber-100/70;
   }
   .segment.search-current {
     @apply ring-2 ring-amber-300;
@@ -160,18 +160,18 @@
     @apply mb-1 block text-xs font-medium text-primary;
   }
   .segment-text {
-    @apply block min-h-16 w-full resize-y rounded-md border border-transparent bg-transparent px-2 py-1 text-sm leading-6 outline-none hover:border-border focus:border-ring focus:ring-2 focus:ring-ring/20;
+    @apply block min-h-16 w-full resize-y rounded-md bg-transparent px-2 py-1 text-sm leading-6 outline-none hover:bg-card/50 focus:bg-card focus:ring-2 focus:ring-ring/20;
   }
   .segment-controls {
     @apply mt-2 flex flex-wrap items-end gap-2;
   }
-  .segment-controls label {
+  .segment-controls label,
+  .segment-speaker-field {
     @apply grid min-w-0 gap-1 text-[11px] text-muted-foreground;
   }
   .segment-time,
-  .segment-speaker,
   .speaker-name input {
-    @apply h-8 min-w-0 rounded-md border bg-card px-2 text-xs text-foreground outline-none focus:ring-2 focus:ring-ring;
+    @apply h-8 min-w-0 rounded-md bg-card px-2 text-xs text-foreground outline-none focus:ring-2 focus:ring-ring;
   }
   .segment-time {
     @apply w-20;
@@ -181,6 +181,9 @@
   }
   .speaker-name {
     @apply grid min-w-0 gap-1 text-xs text-muted-foreground;
+  }
+  .speaker-name input {
+    @apply bg-background transition-colors hover:bg-muted;
   }
   .view-toggle .selected {
     @apply bg-card text-foreground shadow-sm;
